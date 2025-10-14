@@ -1,0 +1,164 @@
+"use client"
+
+import React from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent } from "@/components/ui/card"
+import { Building, X } from "lucide-react"
+import { mockCompanies } from "@/lib/mock-data"
+import { useToast } from "@/hooks/use-toast"
+
+interface SearchCompanyModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onPartyAdded: (party: any) => void
+  side: "A" | "B"
+}
+
+export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: SearchCompanyModalProps) {
+  const [searchTerm, setSearchTerm] = React.useState("")
+  const [selectedCompany, setSelectedCompany] = React.useState<any>(null)
+  const [percentage, setPercentage] = React.useState("")
+  const { toast } = useToast()
+
+  const filteredCompanies = mockCompanies.filter(
+    (company) => company.name.toLowerCase().includes(searchTerm.toLowerCase()) || company.cnpj.includes(searchTerm),
+  )
+
+  const handleSelectCompany = (company: any) => {
+    setSelectedCompany(company)
+  }
+
+  const handleRemoveSelection = () => {
+    setSelectedCompany(null)
+  }
+
+  const handleConfirm = () => {
+    if (!selectedCompany || !percentage) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma empresa e defina a participação",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const partyData = {
+      id: selectedCompany.id,
+      name: selectedCompany.name,
+      type: "company" as const,
+      document: selectedCompany.cnpj,
+      email: selectedCompany.email,
+      phone: selectedCompany.phone,
+      percentage: Number.parseFloat(percentage) || 0,
+    }
+
+    onPartyAdded(partyData)
+
+    // Reset form
+    setSearchTerm("")
+    setSelectedCompany(null)
+    setPercentage("")
+    onOpenChange(false)
+
+    toast({
+      title: "Empresa adicionada",
+      description: `${selectedCompany.name} foi adicionada ao ${side === "A" ? "Lado 1" : "Lado 2"}`,
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Buscar Empresa</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Buscar empresa</Label>
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Digite o nome fantasia ou CNPJ..."
+              disabled={!!selectedCompany}
+            />
+          </div>
+
+          {selectedCompany ? (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-green-600" />
+                    <div>
+                      <div className="font-medium text-green-900 text-sm">{selectedCompany.name}</div>
+                      <div className="text-xs text-green-700">{selectedCompany.cnpj}</div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveSelection}
+                    className="h-6 w-6 p-0 hover:bg-green-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            searchTerm && (
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {filteredCompanies.length > 0 ? (
+                  filteredCompanies.map((company) => (
+                    <Card
+                      key={company.id}
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => handleSelectCompany(company)}
+                    >
+                      <CardContent className="p-2">
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4 text-gray-600" />
+                          <div>
+                            <div className="font-medium text-sm">{company.name}</div>
+                            <div className="text-xs text-gray-500">{company.cnpj}</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-2 text-gray-500 text-sm">Nenhuma empresa encontrada</div>
+                )}
+              </div>
+            )
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="percentage">Porcentagem no contrato (%)</Label>
+            <Input
+              id="percentage"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={percentage}
+              onChange={(e) => setPercentage(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="flex gap-2 justify-end pt-4">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirm}>Confirmar</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
