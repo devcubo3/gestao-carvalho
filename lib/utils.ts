@@ -54,25 +54,28 @@ export function formatDocument(document: string): string {
 }
 
 // Check if date is today
-export function isToday(date: Date): boolean {
+export function isToday(date: Date | string): boolean {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
   const today = new Date()
-  return date.toDateString() === today.toDateString()
+  return dateObj.toDateString() === today.toDateString()
 }
 
 // Check if date is this week
-export function isThisWeek(date: Date): boolean {
+export function isThisWeek(date: Date | string): boolean {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
   const today = new Date()
   const weekStart = new Date(today.setDate(today.getDate() - today.getDay()))
   const weekEnd = new Date(today.setDate(today.getDate() - today.getDay() + 6))
 
-  return date >= weekStart && date <= weekEnd
+  return dateObj >= weekStart && dateObj <= weekEnd
 }
 
 // Check if date is overdue
-export function isOverdue(date: Date): boolean {
+export function isOverdue(date: Date | string): boolean {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  return date < today
+  return dateObj < today
 }
 
 // Get status color for accounts only

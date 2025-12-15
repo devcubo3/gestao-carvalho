@@ -1,10 +1,13 @@
 import { MainLayout } from "@/components/main-layout"
 import { CreditsTable } from "@/components/database/credits-table"
-import { mockCredits } from "@/lib/mock-data"
+import { getCredits } from "@/app/actions/credits"
 
-export default function CreditsPage() {
+export default async function CreditsPage() {
+  const result = await getCredits()
+  const credits = result.success && result.data ? result.data : []
+
   return (
-    <MainLayout breadcrumbs={[{ label: "Banco de Dados" }, { label: "Créditos" }]}>
+    <MainLayout breadcrumbs={[{ label: "Patrimônio" }, { label: "Créditos" }]}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -13,7 +16,7 @@ export default function CreditsPage() {
           </div>
         </div>
 
-        <CreditsTable credits={mockCredits} />
+        <CreditsTable credits={credits} />
       </div>
     </MainLayout>
   )

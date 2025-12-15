@@ -1,10 +1,12 @@
 import { MainLayout } from "@/components/main-layout"
 import { DevelopmentsTable } from "@/components/database/developments-table"
-import { mockDevelopments } from "@/lib/mock-data"
+import { getDevelopments } from "@/app/actions/developments"
 
-export default function DevelopmentsPage() {
+export default async function DevelopmentsPage() {
+  const developments = await getDevelopments()
+
   return (
-    <MainLayout breadcrumbs={[{ label: "Banco de Dados" }, { label: "Empreendimentos" }]}>
+    <MainLayout breadcrumbs={[{ label: "Patrimônio" }, { label: "Empreendimentos" }]}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -13,7 +15,7 @@ export default function DevelopmentsPage() {
           </div>
         </div>
 
-        <DevelopmentsTable developments={mockDevelopments} />
+        <DevelopmentsTable developments={developments} />
       </div>
     </MainLayout>
   )

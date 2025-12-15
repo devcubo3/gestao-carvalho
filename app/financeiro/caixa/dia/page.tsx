@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MainLayout } from "@/components/main-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,26 +8,55 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
-import { CalendarIcon, TrendingUp, TrendingDown, Wallet, ArrowUp, ArrowDown, ArrowLeft, Printer } from "lucide-react"
+import { CalendarIcon, TrendingUp, TrendingDown, Wallet, ArrowUp, ArrowDown, ArrowLeft, Printer, Loader2 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { mockBankAccounts, mockCashTransactionsExtended } from "@/lib/mock-data"
+import { getCashTransactions, getBankAccounts } from "@/app/actions/cash"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import type { CashTransaction, BankAccount } from "@/lib/types"
 
 export default function DailyCashPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [transactions, setTransactions] = useState<CashTransaction[]>([])
+  const [accounts, setAccounts] = useState<BankAccount[]>([])
 
-  // Filter transactions for selected date
-  const dailyTransactions = mockCashTransactionsExtended.filter((transaction) => {
-    const transactionDate = new Date(transaction.date)
-    return (
-      transactionDate.getDate() === selectedDate.getDate() &&
-      transactionDate.getMonth() === selectedDate.getMonth() &&
-      transactionDate.getFullYear() === selectedDate.getFullYear()
-    )
-  })
+  useEffect(() => {
+    loadData()
+  }, [selectedDate])
+
+  const loadData = async () => {
+    setIsLoading(true)
+
+    const dateStr = selectedDate.toISOString().split('T')[0]
+
+    const [transactionsResult, accountsResult] = await Promise.all([
+      getCashTransactions({ dateFrom: dateStr, dateTo: dateStr }),
+      getBankAccounts(),
+    ])
+
+    if (transactionsResult.success) {
+      setTransactions(transactionsResult.data || [])
+    } else {
+      toast({
+        title: "Erro",
+        description: transactionsResult.error,
+        variant: "destructive",
+      })
+    }
+
+    if (accountsResult.success) {
+      setAccounts(accountsResult.data || [])
+    }
+
+    setIsLoading(false)
+  }
+
+  const dailyTransactions = transactions
 
   // Calculate daily totals
   const dailyIncome = dailyTransactions.filter((t) => t.type === "entrada").reduce((sum, t) => sum + t.value, 0)
@@ -36,14 +65,21 @@ export default function DailyCashPage() {
 
   // Calculate account movements for the day
   const getAccountMovements = (accountId: string) => {
-    return dailyTransactions.filter((t) => t.accountId === accountId)
+    return dailyTransactions.filter((t) => t.bank_account_id === accountId)
   }
 
   const getAccountDailyBalance = (accountId: string) => {
     const movements = getAccountMovements(accountId)
-    const income = movements.filter((t) => t.type === "entrada").reduce((sum, t) => sum + t.value, 0)
-    const expenses = movements.filter((t) => t.type === "saida").reduce((sum, t) => sum + t.value, 0)
+    const income = movements.filter((t) => t.type === "entrada").reduce((sum, t) => sum + Number(t.value), 0)
+    const expenses = movements.filter((t) => t.type === "saida").reduce((sum, t) => sum + Number(t.value), 0)
     return income - expenses
+  }
+
+  // Calculate initial balance for the selected date
+  const getAccountInitialBalance = (account: BankAccount) => {
+    // O saldo atual menos as movimentações do dia nos dá o saldo inicial
+    const dailyMovement = getAccountDailyBalance(account.id)
+    return Number(account.balance) - dailyMovement
   }
 
   // Separate transactions by type
@@ -101,7 +137,7 @@ export default function DailyCashPage() {
                     }
                   }}
                   locale={ptBR}
-                  initialFocus
+                  disabled={false}
                 />
               </PopoverContent>
             </Popover>
@@ -110,32 +146,7 @@ export default function DailyCashPage() {
 
         <div className="border-t border-border"></div>
 
-        {/* Section 1: Saldos Iniciais */}
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-semibold text-foreground">Saldos Iniciais</h2>
-            <p className="text-muted-foreground">Saldos das contas no início do dia</p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {mockBankAccounts.map((account) => (
-              <Card key={account.id} className="shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{account.name}</CardTitle>
-                  <Wallet className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{formatCurrency(account.balance)}</div>
-                  <p className="text-xs text-muted-foreground mt-1">saldo inicial</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-border"></div>
-
-        {/* Section 2: Movimentações do Dia */}
+        {/* Movimentações do Dia */}
         <div className="space-y-6">
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold text-foreground">Movimentações do Dia</h2>
@@ -165,10 +176,10 @@ export default function DailyCashPage() {
                     <TableBody>
                       {incomeTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
-                          <TableCell className="text-sm">{formatDate(transaction.date)}</TableCell>
+                          <TableCell className="text-sm">{formatDate(transaction.transaction_date)}</TableCell>
                           <TableCell className="font-medium">{transaction.description}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{transaction.accountName}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{transaction.vinculo}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{transaction.forma}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{transaction.centro_custo}</TableCell>
                           <TableCell className="text-right font-semibold text-green-600">
                             +{formatCurrency(transaction.value)}
                           </TableCell>
@@ -207,10 +218,10 @@ export default function DailyCashPage() {
                     <TableBody>
                       {expenseTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
-                          <TableCell className="text-sm">{formatDate(transaction.date)}</TableCell>
+                          <TableCell className="text-sm">{formatDate(transaction.transaction_date)}</TableCell>
                           <TableCell className="font-medium">{transaction.description}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{transaction.accountName}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{transaction.vinculo}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{transaction.forma}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{transaction.centro_custo}</TableCell>
                           <TableCell className="text-right font-semibold text-red-600">
                             -{formatCurrency(transaction.value)}
                           </TableCell>
@@ -231,7 +242,7 @@ export default function DailyCashPage() {
 
         <div className="border-t border-border"></div>
 
-        {/* Section 3: Totais e Resumo Final */}
+        {/* Totais e Resumo Final */}
         <div className="space-y-6">
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold text-foreground">Totais e Resumo Final</h2>
@@ -294,9 +305,9 @@ export default function DailyCashPage() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Saldos Atualizados por Conta</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {mockBankAccounts.map((account) => {
+              {accounts.map((account) => {
                 const dailyMovement = getAccountDailyBalance(account.id)
-                const finalBalance = account.balance + dailyMovement
+                const finalBalance = Number(account.balance)
 
                 return (
                   <Card key={account.id} className="shadow-sm">

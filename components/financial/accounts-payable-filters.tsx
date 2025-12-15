@@ -1,21 +1,17 @@
 "use client"
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CalendarIcon, Search, RotateCcw } from "lucide-react"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Search, RotateCcw } from "lucide-react"
 import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { cn } from "@/lib/utils"
 import { mockVinculos, mockCentrosCusto } from "@/lib/mock-data"
 
 export interface AccountsPayableFilters {
   dateFrom?: Date
   dateTo?: Date
+  status?: string
   code?: string
   vinculo?: string
   centroCusto?: string
@@ -37,11 +33,15 @@ export function AccountsPayableFilters({
   onClearFilters,
   onApplyFilters,
 }: AccountsPayableFiltersProps) {
-  const [dateFromOpen, setDateFromOpen] = useState(false)
-  const [dateToOpen, setDateToOpen] = useState(false)
-
   const updateFilter = (key: keyof AccountsPayableFilters, value: any) => {
-    onFiltersChange({ ...filters, [key]: value })
+    // Se o valor for undefined ou string vazia, remove do objeto
+    const newFilters = { ...filters }
+    if (value === undefined || value === "" || value === null) {
+      delete newFilters[key]
+    } else {
+      newFilters[key] = value
+    }
+    onFiltersChange(newFilters)
   }
 
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined && value !== "" && value !== null)
@@ -55,63 +55,36 @@ export function AccountsPayableFilters({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Data Inicial */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Vencimento</Label>
-            <div className="flex gap-2">
-              <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex-1 justify-start text-left font-normal",
-                      !filters.dateFrom && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dateFrom ? format(filters.dateFrom, "dd/MM/yyyy", { locale: ptBR }) : "De"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dateFrom}
-                    onSelect={(date) => {
-                      updateFilter("dateFrom", date)
-                      setDateFromOpen(false)
-                    }}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+            <Label htmlFor="dateFrom" className="text-sm font-medium">
+              Data Inicial
+            </Label>
+            <Input
+              id="dateFrom"
+              type="date"
+              value={filters.dateFrom ? format(filters.dateFrom, "yyyy-MM-dd") : ""}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined
+                updateFilter("dateFrom", date)
+              }}
+            />
+          </div>
 
-              <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex-1 justify-start text-left font-normal",
-                      !filters.dateTo && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dateTo ? format(filters.dateTo, "dd/MM/yyyy", { locale: ptBR }) : "Até"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dateTo}
-                    onSelect={(date) => {
-                      updateFilter("dateTo", date)
-                      setDateToOpen(false)
-                    }}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          {/* Data Final */}
+          <div className="space-y-2">
+            <Label htmlFor="dateTo" className="text-sm font-medium">
+              Data Final
+            </Label>
+            <Input
+              id="dateTo"
+              type="date"
+              value={filters.dateTo ? format(filters.dateTo, "yyyy-MM-dd") : ""}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined
+                updateFilter("dateTo", date)
+              }}
+            />
           </div>
 
           {/* Código */}
@@ -121,12 +94,32 @@ export function AccountsPayableFilters({
             </Label>
             <Input
               id="code"
-              placeholder="Ex: PAG-0001"
+              placeholder="Ex: CP-250001"
               value={filters.code || ""}
               onChange={(e) => updateFilter("code", e.target.value)}
             />
           </div>
 
+          {/* Status */}
+          <div className="space-y-2">
+            <Label htmlFor="status" className="text-sm font-medium">
+              Status
+            </Label>
+            <Select value={filters.status || ""} onValueChange={(value) => updateFilter("status", value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todos</SelectItem>
+                <SelectItem value="em_aberto">Em Aberto</SelectItem>
+                <SelectItem value="vencido">Vencido</SelectItem>
+                <SelectItem value="parcialmente_pago">Parcialmente Pago</SelectItem>
+                <SelectItem value="quitado">Quitado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Vínculo */}
           <div className="space-y-2">
             <Label htmlFor="vinculo" className="text-sm font-medium">
               Vínculo
@@ -145,6 +138,7 @@ export function AccountsPayableFilters({
             </Select>
           </div>
 
+          {/* Centro de Custo */}
           <div className="space-y-2">
             <Label htmlFor="centroCusto" className="text-sm font-medium">
               Centro de Custo
@@ -176,6 +170,7 @@ export function AccountsPayableFilters({
             />
           </div>
 
+          {/* Valor Range */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Valor</Label>
             <div className="flex gap-2">
@@ -214,3 +209,4 @@ export function AccountsPayableFilters({
     </Card>
   )
 }
+

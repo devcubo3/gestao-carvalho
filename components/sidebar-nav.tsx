@@ -112,11 +112,6 @@ const navItems: NavItem[] = [
     href: "/relatorios",
     icon: FileText,
   },
-  {
-    title: "Banco de Dados",
-    href: "/banco-dados",
-    icon: Database,
-  },
 ]
 
 const settingsItems: NavItem[] = [

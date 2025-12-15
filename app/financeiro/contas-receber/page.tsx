@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MainLayout } from "@/components/main-layout"
 import { AccountsReceivableTable } from "@/components/financial/accounts-receivable-table"
 import { ReceivablesSummaryCards } from "@/components/financial/receivables-summary-cards"
@@ -9,14 +9,57 @@ import {
   type AccountsReceivableFilters as FiltersType,
 } from "@/components/financial/accounts-receivable-filters"
 import { Button } from "@/components/ui/button"
-import { mockAccountsReceivable } from "@/lib/mock-data"
 import { Users } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { getAccountsReceivable } from "@/app/actions/receivables"
+import type { AccountReceivable } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 
 export default function AccountsReceivablePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [filters, setFilters] = useState<FiltersType>({})
-  const [filteredAccounts, setFilteredAccounts] = useState(mockAccountsReceivable)
+  const [accounts, setAccounts] = useState<AccountReceivable[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    loadData()
+  }, [refreshKey])
+
+  const loadData = async () => {
+    setIsLoading(true)
+
+    // Converter filtros de Date para string
+    const apiFilters: any = {}
+    if (filters.dateFrom) {
+      apiFilters.dateFrom = filters.dateFrom.toISOString().split('T')[0]
+    }
+    if (filters.dateTo) {
+      apiFilters.dateTo = filters.dateTo.toISOString().split('T')[0]
+    }
+    if (filters.code) apiFilters.code = filters.code
+    if (filters.status && filters.status !== '_all') apiFilters.status = filters.status
+    if (filters.vinculo) apiFilters.vinculo = filters.vinculo
+    if (filters.centroCusto) apiFilters.centroCusto = filters.centroCusto
+    if (filters.description) apiFilters.description = filters.description
+    if (filters.valueMin) apiFilters.valueMin = filters.valueMin
+    if (filters.valueMax) apiFilters.valueMax = filters.valueMax
+
+    const result = await getAccountsReceivable(apiFilters)
+
+    if (result.success) {
+      setAccounts(result.data || [])
+    } else {
+      toast({
+        title: "Erro",
+        description: result.error,
+        variant: "destructive",
+      })
+    }
+
+    setIsLoading(false)
+  }
 
   const handleFiltersChange = (newFilters: FiltersType) => {
     setFilters(newFilters)
@@ -24,47 +67,15 @@ export default function AccountsReceivablePage() {
 
   const handleClearFilters = () => {
     setFilters({})
-    setFilteredAccounts(mockAccountsReceivable)
+    setRefreshKey(prev => prev + 1)
   }
 
   const handleApplyFilters = () => {
-    let filtered = mockAccountsReceivable
+    loadData()
+  }
 
-    if (filters.dateFrom) {
-      filtered = filtered.filter((account) => new Date(account.dueDate) >= filters.dateFrom!)
-    }
-
-    if (filters.dateTo) {
-      filtered = filtered.filter((account) => new Date(account.dueDate) <= filters.dateTo!)
-    }
-
-    if (filters.code) {
-      filtered = filtered.filter((account) => account.code.toLowerCase().includes(filters.code!.toLowerCase()))
-    }
-
-    if (filters.vinculo) {
-      filtered = filtered.filter((account) => account.vinculo === filters.vinculo)
-    }
-
-    if (filters.centroCusto) {
-      filtered = filtered.filter((account) => account.centroCusto === filters.centroCusto)
-    }
-
-    if (filters.description) {
-      filtered = filtered.filter((account) =>
-        account.description.toLowerCase().includes(filters.description!.toLowerCase()),
-      )
-    }
-
-    if (filters.valueMin) {
-      filtered = filtered.filter((account) => account.value >= filters.valueMin!)
-    }
-
-    if (filters.valueMax) {
-      filtered = filtered.filter((account) => account.value <= filters.valueMax!)
-    }
-
-    setFilteredAccounts(filtered)
+  const handleSuccess = () => {
+    setRefreshKey(prev => prev + 1)
   }
 
   return (
@@ -81,7 +92,7 @@ export default function AccountsReceivablePage() {
           </Button>
         </div>
 
-        <ReceivablesSummaryCards accounts={filteredAccounts} />
+        {!isLoading && <ReceivablesSummaryCards accounts={accounts} />}
 
         <AccountsReceivableFilters
           filters={filters}
@@ -90,7 +101,7 @@ export default function AccountsReceivablePage() {
           onApplyFilters={handleApplyFilters}
         />
 
-        <AccountsReceivableTable accounts={filteredAccounts} />
+        <AccountsReceivableTable accounts={accounts} onSuccess={handleSuccess} />
       </div>
     </MainLayout>
   )

@@ -85,9 +85,9 @@ export function DataTable<T extends Record<string, any>>({
           </div>
         )}
 
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-visible">
           <Table>
-            <TableHeader className="bg-muted/50 sticky top-0 z-10">
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 {columns.map((column) => (
                   <TableHead

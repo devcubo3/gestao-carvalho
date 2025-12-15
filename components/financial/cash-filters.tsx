@@ -37,7 +37,14 @@ export function CashFilters({ filters, onFiltersChange, onClearFilters, onApplyF
   const [dateToOpen, setDateToOpen] = useState(false)
 
   const updateFilter = (key: keyof CashFilters, value: any) => {
-    onFiltersChange({ ...filters, [key]: value })
+    // Se o valor for undefined ou string vazia, remove do objeto
+    const newFilters = { ...filters }
+    if (value === undefined || value === "" || value === null) {
+      delete newFilters[key]
+    } else {
+      newFilters[key] = value
+    }
+    onFiltersChange(newFilters)
   }
 
   const hasActiveFilters = Object.values(filters).some((value) => value !== undefined && value !== "" && value !== null)
@@ -51,64 +58,36 @@ export function CashFilters({ filters, onFiltersChange, onClearFilters, onApplyF
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Data Range */}
+          {/* Data Inicial */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Data</Label>
-            <div className="flex gap-2">
-              <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex-1 justify-start text-left font-normal",
-                      !filters.dateFrom && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dateFrom ? format(filters.dateFrom, "dd/MM/yyyy", { locale: ptBR }) : "De"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dateFrom}
-                    onSelect={(date) => {
-                      updateFilter("dateFrom", date)
-                      setDateFromOpen(false)
-                    }}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+            <Label htmlFor="dateFrom" className="text-sm font-medium">
+              Data Inicial
+            </Label>
+            <Input
+              id="dateFrom"
+              type="date"
+              value={filters.dateFrom ? format(filters.dateFrom, "yyyy-MM-dd") : ""}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined
+                updateFilter("dateFrom", date)
+              }}
+            />
+          </div>
 
-              <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex-1 justify-start text-left font-normal",
-                      !filters.dateTo && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dateTo ? format(filters.dateTo, "dd/MM/yyyy", { locale: ptBR }) : "Até"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dateTo}
-                    onSelect={(date) => {
-                      updateFilter("dateTo", date)
-                      setDateToOpen(false)
-                    }}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          {/* Data Final */}
+          <div className="space-y-2">
+            <Label htmlFor="dateTo" className="text-sm font-medium">
+              Data Final
+            </Label>
+            <Input
+              id="dateTo"
+              type="date"
+              value={filters.dateTo ? format(filters.dateTo, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd")}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined
+                updateFilter("dateTo", date)
+              }}
+            />
           </div>
 
           {/* Tipo */}

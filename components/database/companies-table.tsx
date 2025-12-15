@@ -1,68 +1,86 @@
 "use client"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { DataTable } from "@/components/ui/data-table"
-import { MoreHorizontal, Eye, Edit, Copy, Archive, Building } from "lucide-react"
-import type { TableColumn } from "@/hooks/use-table"
 
-interface Company {
-  id: string
-  name: string
-  cnpj: string
-  graPercentage: number
+import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { DataTable } from "@/components/ui/data-table"
+import { Edit, Trash2, Building, Loader2 } from "lucide-react"
+import type { TableColumn } from "@/hooks/use-table"
+import type { Company } from "@/lib/types"
+import { getCompanies } from "@/app/actions/companies"
+import { useToast } from "@/hooks/use-toast"
+import { CompanyEditModal } from "./company-edit-modal"
+import { DeleteCompanyModal } from "./delete-company-modal"
+
+interface CompaniesTableProps {
+  canEdit: boolean
+  canDelete: boolean
 }
 
-const mockCompanies: Company[] = [
-  {
-    id: "1",
-    name: "Tech Solutions Ltda",
-    cnpj: "12.345.678/0001-90",
-    graPercentage: 15.5,
-  },
-  {
-    id: "2",
-    name: "Construtora ABC S.A.",
-    cnpj: "98.765.432/0001-10",
-    graPercentage: 25.0,
-  },
-  {
-    id: "3",
-    name: "Logística Express ME",
-    cnpj: "45.678.901/0001-23",
-    graPercentage: 8.75,
-  },
-  {
-    id: "4",
-    name: "Consultoria Financeira Ltda",
-    cnpj: "78.901.234/0001-56",
-    graPercentage: 12.3,
-  },
-  {
-    id: "5",
-    name: "Indústria Metalúrgica Sul",
-    cnpj: "32.165.498/0001-87",
-    graPercentage: 30.0,
-  },
-]
+export function CompaniesTable({ canEdit, canDelete }: CompaniesTableProps) {
+  const { toast } = useToast()
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [deletingCompany, setDeletingCompany] = useState<Company | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
-export function CompaniesTable() {
-  const handleAction = (action: string, companyId: string) => {
-    console.log(`${action} company ${companyId}`)
+  const loadCompanies = async () => {
+    setIsLoading(true)
+    const result = await getCompanies()
+    
+    if (result.success && result.data) {
+      setCompanies(result.data)
+    } else {
+      toast({
+        title: "Erro",
+        description: result.error || "Erro ao carregar empresas",
+        variant: "destructive",
+      })
+    }
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    loadCompanies()
+  }, [])
+
+  const handleEdit = (company: Company) => {
+    if (!canEdit) {
+      toast({
+        title: "Acesso negado",
+        description: "Você não tem permissão para editar empresas",
+        variant: "destructive",
+      })
+      return
+    }
+    setEditingCompany(company)
+    setIsEditModalOpen(true)
+  }
+
+  const handleDelete = (company: Company) => {
+    if (!canDelete) {
+      toast({
+        title: "Acesso negado",
+        description: "Você não tem permissão para excluir empresas",
+        variant: "destructive",
+      })
+      return
+    }
+    setDeletingCompany(company)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleSuccess = () => {
+    loadCompanies()
   }
 
   const columns: TableColumn<Company>[] = [
     {
-      key: "name",
+      key: "trade_name",
       label: "Nome Fantasia",
       width: "min-w-[300px]",
-      render: (company) => <span className="font-medium">{company.name}</span>,
+      render: (company) => <span className="font-medium">{company.trade_name}</span>,
     },
     {
       key: "cnpj",
@@ -71,58 +89,74 @@ export function CompaniesTable() {
       render: (company) => <span className="font-mono">{company.cnpj}</span>,
     },
     {
-      key: "graPercentage",
+      key: "gra_percentage",
       label: "% GRA",
       width: "w-32",
-      render: (company) => <span className="font-mono text-sm">{company.graPercentage.toFixed(2)}%</span>,
+      render: (company) => <span className="font-mono text-sm">{company.gra_percentage.toFixed(2).replace('.', ',')}%</span>,
     },
     {
       key: "actions",
       label: "Ações",
-      width: "w-[70px]",
+      width: "w-[100px]",
       sortable: false,
       render: (company) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Abrir menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleAction("view", company.id)}>
-              <Eye className="mr-2 h-4 w-4" />
-              Ver detalhes
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction("edit", company.id)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction("duplicate", company.id)}>
-              <Copy className="mr-2 h-4 w-4" />
-              Duplicar
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleAction("archive", company.id)}>
-              <Archive className="mr-2 h-4 w-4" />
-              Arquivar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleEdit(company)}
+            disabled={!canEdit}
+            title={canEdit ? "Editar empresa" : "Sem permissão para editar"}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDelete(company)}
+            disabled={!canDelete}
+            title={canDelete ? "Excluir empresa permanentemente" : "Sem permissão para excluir"}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ]
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
-    <DataTable
-      title="Cadastro de Empresas"
-      data={mockCompanies}
-      columns={columns}
-      searchFields={["name", "cnpj"]}
-      searchPlaceholder="Buscar por nome fantasia ou CNPJ..."
-      emptyIcon={<Building className="h-8 w-8 text-muted-foreground" />}
-      emptyMessage="Nenhuma empresa encontrada"
-    />
+    <>
+      <DataTable
+        title="Cadastro de Empresas"
+        data={companies}
+        columns={columns}
+        searchFields={["trade_name", "cnpj"]}
+        searchPlaceholder="Buscar por nome fantasia ou CNPJ..."
+        emptyIcon={<Building className="h-8 w-8 text-muted-foreground" />}
+        emptyMessage="Nenhuma empresa encontrada"
+      />
+
+      <CompanyEditModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        company={editingCompany}
+        onSuccess={handleSuccess}
+      />
+
+      <DeleteCompanyModal
+        open={isDeleteModalOpen}
+        onOpenChange={setIsDeleteModalOpen}
+        company={deletingCompany}
+        onSuccess={handleSuccess}
+      />
+    </>
   )
 }

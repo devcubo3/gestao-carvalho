@@ -1,10 +1,13 @@
 import { MainLayout } from "@/components/main-layout"
 import { PropertiesTable } from "@/components/database/properties-table"
-import { mockProperties } from "@/lib/mock-data"
+import { getProperties } from "@/app/actions/properties"
 
-export default function PropertiesPage() {
+export default async function PropertiesPage() {
+  const result = await getProperties()
+  const properties = result.success && result.data ? result.data : []
+
   return (
-    <MainLayout breadcrumbs={[{ label: "Banco de Dados" }, { label: "Imóveis" }]}>
+    <MainLayout breadcrumbs={[{ label: "Patrimônio" }, { label: "Imóveis" }]}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -13,7 +16,7 @@ export default function PropertiesPage() {
           </div>
         </div>
 
-        <PropertiesTable properties={mockProperties} />
+        <PropertiesTable properties={properties} />
       </div>
     </MainLayout>
   )

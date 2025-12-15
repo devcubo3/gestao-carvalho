@@ -11,9 +11,13 @@ interface MainLayoutProps {
     label: string
     href?: string
   }>
+  hideSearch?: boolean
+  hideQuickActions?: boolean
+  hideNotifications?: boolean
+  hideUserMenu?: boolean
 }
 
-export function MainLayout({ children, breadcrumbs }: MainLayoutProps) {
+export function MainLayout({ children, breadcrumbs, hideSearch, hideQuickActions, hideNotifications, hideUserMenu }: MainLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
 
@@ -41,7 +45,14 @@ export function MainLayout({ children, breadcrumbs }: MainLayoutProps) {
 
       {/* Main content */}
       <div className={cn("flex flex-col transition-all duration-300", sidebarCollapsed ? "md:ml-16" : "md:ml-64")}>
-        <TopBar onToggleSidebar={() => setMobileMenuOpen(!mobileMenuOpen)} breadcrumbs={breadcrumbs} />
+        <TopBar
+          onToggleSidebar={() => setMobileMenuOpen(!mobileMenuOpen)}
+          breadcrumbs={breadcrumbs}
+          hideSearch={hideSearch}
+          hideQuickActions={hideQuickActions}
+          hideNotifications={hideNotifications}
+          hideUserMenu={hideUserMenu}
+        />
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>

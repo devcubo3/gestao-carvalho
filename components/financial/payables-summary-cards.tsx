@@ -11,21 +11,20 @@ interface PayablesSummaryCardsProps {
 }
 
 export function PayablesSummaryCards({ accounts }: PayablesSummaryCardsProps) {
-  const openAccounts = accounts.filter((account) => account.status === "em_aberto")
+  const openAccounts = accounts.filter((account) => ['em_aberto', 'parcialmente_pago'].includes(account.status))
 
-  const totalOpen = openAccounts.reduce((sum, account) => sum + account.value, 0)
+  const totalOpen = openAccounts.reduce((sum, account) => sum + account.remaining_value, 0)
 
   const dueToday = openAccounts
-    .filter((account) => isToday(account.dueDate))
-    .reduce((sum, account) => sum + account.value, 0)
+    .filter((account) => isToday(account.due_date))
+    .reduce((sum, account) => sum + account.remaining_value, 0)
 
   const dueThisWeek = openAccounts
-    .filter((account) => isThisWeek(account.dueDate))
-    .reduce((sum, account) => sum + account.value, 0)
+    .filter((account) => isThisWeek(account.due_date))
+    .reduce((sum, account) => sum + account.remaining_value, 0)
 
-  const overdue = openAccounts
-    .filter((account) => isOverdue(account.dueDate))
-    .reduce((sum, account) => sum + account.value, 0)
+  const overdueAccounts = accounts.filter((account) => account.status === 'vencido')
+  const overdue = overdueAccounts.reduce((sum, account) => sum + account.remaining_value, 0)
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

@@ -1,24 +1,57 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataTable } from "@/components/ui/data-table"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Plus, TrendingUp, TrendingDown, Wallet } from "lucide-react"
+import { Plus, TrendingUp, TrendingDown, Wallet, Trash2 } from "lucide-react"
+import { DeleteTransactionModal } from "./delete-transaction-modal"
+import { getUserPermissions } from "@/app/actions/cash"
 import type { CashTransaction } from "@/lib/types"
 import type { TableColumn } from "@/hooks/use-table"
 
 interface CashTransactionsTableProps {
   transactions: CashTransaction[]
+  onCreateClick?: () => void
+  onTransactionDeleted?: () => void
 }
 
-export function CashTransactionsTable({ transactions }: CashTransactionsTableProps) {
+export function CashTransactionsTable({ 
+  transactions, 
+  onCreateClick,
+  onTransactionDeleted 
+}: CashTransactionsTableProps) {
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [transactionToDelete, setTransactionToDelete] = useState<CashTransaction | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  useEffect(() => {
+    loadPermissions()
+  }, [])
+
+  const loadPermissions = async () => {
+    const result = await getUserPermissions()
+    if (result.success) {
+      setIsAdmin(result.data?.role === 'admin')
+    }
+  }
+
+  const handleDeleteClick = (transaction: CashTransaction) => {
+    setTransactionToDelete(transaction)
+    setShowDeleteModal(true)
+  }
+
+  const handleDeleteSuccess = () => {
+    setTransactionToDelete(null)
+    onTransactionDeleted?.()
+  }
   const columns: TableColumn<CashTransaction>[] = [
     {
-      key: "date",
+      key: "transaction_date",
       label: "Data",
       width: "w-28",
-      render: (transaction) => formatDate(transaction.date),
+      render: (transaction) => formatDate(transaction.transaction_date),
     },
     {
       key: "type",
@@ -53,10 +86,10 @@ export function CashTransactionsTable({ transactions }: CashTransactionsTablePro
       ),
     },
     {
-      key: "centroCusto",
+      key: "centro_custo",
       label: "Centro de Custo",
       width: "w-36",
-      render: (transaction) => <Badge variant="outline">{transaction.centroCusto}</Badge>,
+      render: (transaction) => <Badge variant="outline">{transaction.centro_custo}</Badge>,
     },
     {
       key: "description",
@@ -76,21 +109,47 @@ export function CashTransactionsTable({ transactions }: CashTransactionsTablePro
         </span>
       ),
     },
+    ...(isAdmin ? [{
+      key: "actions" as keyof CashTransaction,
+      label: "Ações",
+      width: "w-20",
+      align: "center" as const,
+      render: (transaction: CashTransaction) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleDeleteClick(transaction)}
+          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          title="Excluir lançamento"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      ),
+    }] : []),
   ]
 
   return (
-    <DataTable
-      title="Movimentações de Caixa"
-      data={transactions}
-      columns={columns}
-      emptyIcon={<Wallet className="h-8 w-8 text-muted-foreground" />}
-      emptyMessage="Nenhuma movimentação encontrada"
-      headerAction={
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Lançamento
-        </Button>
-      }
-    />
+    <>
+      <DataTable
+        title="Movimentações de Caixa"
+        data={transactions}
+        columns={columns}
+        emptyIcon={<Wallet className="h-8 w-8 text-muted-foreground" />}
+        emptyMessage="Nenhuma movimentação encontrada"
+        headerAction={
+          <Button onClick={onCreateClick}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Lançamento
+          </Button>
+        }
+      />
+
+      <DeleteTransactionModal
+        transaction={transactionToDelete}
+        open={showDeleteModal}
+        onOpenChange={setShowDeleteModal}
+        onSuccess={handleDeleteSuccess}
+      />
+    </>
   )
 }

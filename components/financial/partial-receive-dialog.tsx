@@ -16,48 +16,66 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/utils"
-import type { AccountReceivable } from "@/lib/types"
+import type { AccountReceivable, BankAccount } from "@/lib/types"
+import { getBankAccounts } from "@/app/actions/cash"
 
 interface PartialReceiveDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   account: AccountReceivable | null
-  onSubmit: (data: { receivedAmount: number; receiveDate: string; paymentMethod: string }) => void
+  onSubmit: (data: { receivedAmount: number; receiveDate: string; paymentMethod: string; bankAccountId: string }) => void
+  submitting?: boolean
 }
 
-export function PartialReceiveDialog({ open, onOpenChange, account, onSubmit }: PartialReceiveDialogProps) {
+export function PartialReceiveDialog({ open, onOpenChange, account, onSubmit, submitting = false }: PartialReceiveDialogProps) {
   const [receivedAmount, setReceivedAmount] = useState("")
   const [receiveDate, setReceiveDate] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("")
+  const [bankAccountId, setBankAccountId] = useState("")
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [remainingAmount, setRemainingAmount] = useState(0)
+
+  useEffect(() => {
+    if (open) {
+      loadBankAccounts()
+      const today = new Date().toISOString().split('T')[0]
+      setReceiveDate(today)
+    }
+  }, [open])
 
   useEffect(() => {
     if (account && receivedAmount) {
       const received = Number.parseFloat(receivedAmount) || 0
-      setRemainingAmount(account.value - received)
+      setRemainingAmount(account.remaining_value - received)
     } else if (account) {
-      setRemainingAmount(account.value)
+      setRemainingAmount(account.remaining_value)
     }
   }, [receivedAmount, account])
 
+  const loadBankAccounts = async () => {
+    const result = await getBankAccounts()
+    if (result.success && result.data) {
+      setBankAccounts(result.data.filter((acc: BankAccount) => acc.status === 'ativo'))
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!receivedAmount || !receiveDate || !paymentMethod) return
+    if (!receivedAmount || !receiveDate || !bankAccountId) return
 
     const received = Number.parseFloat(receivedAmount)
-    if (received <= 0 || received > (account?.value || 0)) return
+    if (received <= 0 || received > (account?.remaining_value || 0)) return
 
     onSubmit({
       receivedAmount: received,
       receiveDate,
-      paymentMethod,
+      paymentMethod: 'Transferência',
+      bankAccountId,
     })
 
     // Reset form
     setReceivedAmount("")
     setReceiveDate("")
-    setPaymentMethod("")
-    onOpenChange(false)
+    setBankAccountId("")
   }
 
   if (!account) return null
@@ -72,21 +90,25 @@ export function PartialReceiveDialog({ open, onOpenChange, account, onSubmit }: 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label>Código</Label>
+              <Input value={account.code} disabled className="font-mono" />
+            </div>
+            <div className="grid gap-2">
               <Label>Descrição da conta</Label>
               <Input value={account.description} disabled />
             </div>
             <div className="grid gap-2">
-              <Label>Valor total da conta</Label>
-              <Input value={formatCurrency(account.value)} disabled />
+              <Label>Valor pendente atual</Label>
+              <Input value={formatCurrency(account.remaining_value)} disabled className="font-bold" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="receivedAmount">Valor recebido</Label>
+              <Label htmlFor="receivedAmount">Valor a receber agora *</Label>
               <Input
                 id="receivedAmount"
                 type="number"
                 step="0.01"
                 min="0.01"
-                max={account.value}
+                max={account.remaining_value}
                 value={receivedAmount}
                 onChange={(e) => setReceivedAmount(e.target.value)}
                 placeholder="0,00"
@@ -94,11 +116,15 @@ export function PartialReceiveDialog({ open, onOpenChange, account, onSubmit }: 
               />
             </div>
             <div className="grid gap-2">
-              <Label>Valor restante</Label>
-              <Input value={formatCurrency(remainingAmount)} disabled />
+              <Label>Valor que restará pendente</Label>
+              <Input 
+                value={formatCurrency(remainingAmount)} 
+                disabled 
+                className={remainingAmount > 0 ? "text-yellow-600 font-medium" : "text-green-600 font-medium"}
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="receiveDate">Data de recebimento</Label>
+              <Label htmlFor="receiveDate">Data de recebimento *</Label>
               <Input
                 id="receiveDate"
                 type="date"
@@ -108,25 +134,28 @@ export function PartialReceiveDialog({ open, onOpenChange, account, onSubmit }: 
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="paymentMethod">Forma de recebimento</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod} required>
+              <Label htmlFor="bankAccount">Conta bancária *</Label>
+              <Select value={bankAccountId} onValueChange={setBankAccountId} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma conta bancária" />
+                  <SelectValue placeholder="Selecione a conta" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="banco-brasil">Banco do Brasil - CC 12345-6</SelectItem>
-                  <SelectItem value="itau">Itaú - CC 98765-4</SelectItem>
-                  <SelectItem value="santander">Santander - CC 55555-1</SelectItem>
-                  <SelectItem value="caixa">Caixa Econômica - CC 77777-8</SelectItem>
+                  {bankAccounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} - {formatCurrency(acc.balance)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancelar
             </Button>
-            <Button type="submit">Confirmar Recebimento Parcial</Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Processando..." : "Confirmar Recebimento Parcial"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

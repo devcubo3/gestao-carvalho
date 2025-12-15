@@ -30,9 +30,20 @@ interface TopBarProps {
     label: string
     href?: string
   }>
+  hideSearch?: boolean
+  hideQuickActions?: boolean
+  hideNotifications?: boolean
+  hideUserMenu?: boolean
 }
 
-export function TopBar({ onToggleSidebar, breadcrumbs = [] }: TopBarProps) {
+export function TopBar({
+  onToggleSidebar,
+  breadcrumbs = [],
+  hideSearch = false,
+  hideQuickActions = false,
+  hideNotifications = false,
+  hideUserMenu = false
+}: TopBarProps) {
   const [searchQuery, setSearchQuery] = React.useState("")
   const router = useRouter() // Importar useRouter para navegação
 
@@ -84,77 +95,6 @@ export function TopBar({ onToggleSidebar, breadcrumbs = [] }: TopBarProps) {
             </BreadcrumbList>
           </Breadcrumb>
         </div>
-
-        {/* Global search */}
-        <div className="relative w-64 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar contratos, imóveis..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        {/* Quick actions */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="outline">
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">Ações rápidas</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Ações Rápidas</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {quickActions.map((action, index) => (
-              <DropdownMenuItem key={index} onClick={action.action}>
-                {action.label}
-                {action.shortcut && (
-                  <span className="ml-auto text-xs text-muted-foreground">Ctrl+{action.shortcut}</span>
-                )}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Notifications */}
-        <Button size="icon" variant="outline">
-          <Bell className="h-4 w-4" />
-          <span className="sr-only">Notificações</span>
-        </Button>
-
-        {/* User menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Avatar" />
-                <AvatarFallback>JS</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">João Silva</p>
-                <p className="text-xs leading-none text-muted-foreground">joao.silva@empresa.com.br</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/configuracoes/minha-conta">
-                <User className="mr-2 h-4 w-4" />
-                <span>Minha Conta</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <span>Sair</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   )

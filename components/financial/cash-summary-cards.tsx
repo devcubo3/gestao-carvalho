@@ -10,11 +10,10 @@ interface CashSummaryCardsProps {
 }
 
 export function CashSummaryCards({ transactions }: CashSummaryCardsProps) {
-  const currentBalance = transactions.length > 0 ? transactions[transactions.length - 1].balance : 0
-
+  // Calcular saldo baseado nas transações
   const totalIncome = transactions.filter((t) => t.type === "entrada").reduce((sum, t) => sum + t.value, 0)
-
   const totalExpenses = transactions.filter((t) => t.type === "saida").reduce((sum, t) => sum + t.value, 0)
+  const currentBalance = totalIncome - totalExpenses
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

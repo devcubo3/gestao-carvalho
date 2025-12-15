@@ -30,14 +30,14 @@ export function ContractsTable({ contracts }: ContractsTableProps) {
       label: "Parte GRA",
       width: "min-w-[150px]",
       sortable: false,
-      render: (contract) => <div className="text-sm truncate">{contract.sideA.parties[0]?.name || "-"}</div>,
+      render: (contract) => <div className="text-sm truncate">{contract.sideA?.parties?.[0]?.name || "-"}</div>,
     },
     {
       key: "sideB",
       label: "Parte Outros",
       width: "min-w-[150px]",
       sortable: false,
-      render: (contract) => <div className="text-sm truncate">{contract.sideB.parties[0]?.name || "-"}</div>,
+      render: (contract) => <div className="text-sm truncate">{contract.sideB?.parties?.[0]?.name || "-"}</div>,
     },
     {
       key: "value",
@@ -46,7 +46,7 @@ export function ContractsTable({ contracts }: ContractsTableProps) {
       align: "right",
       render: (contract) => (
         <span className="font-medium">
-          {contract.sideA.totalValue > 0 ? formatCurrency(contract.sideA.totalValue) : "-"}
+          {(contract.sideA?.totalValue || 0) > 0 ? formatCurrency(contract.sideA?.totalValue || 0) : "-"}
         </span>
       ),
     },
@@ -88,7 +88,7 @@ export function ContractsTable({ contracts }: ContractsTableProps) {
       }
       summary={
         <div className="text-sm text-muted-foreground">
-          Valor total: {formatCurrency(contracts.reduce((sum, c) => sum + c.sideA.totalValue, 0))}
+          Valor total: {formatCurrency(contracts.reduce((sum, c) => sum + (c.sideA?.totalValue || 0), 0))}
         </div>
       }
     />

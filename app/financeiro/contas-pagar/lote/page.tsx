@@ -1,43 +1,90 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { MainLayout } from "@/components/main-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Minus, Search, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { AccountPayable } from "@/lib/types"
-import { mockAccountsPayable, mockVinculos } from "@/lib/mock-data"
+import { getAccountsPayable, createBatchPayablePayments } from "@/app/actions/payables"
+import { getBankAccounts, type BankAccount } from "@/app/actions/bank-accounts"
+import { mockVinculos } from "@/lib/mock-data"
+import { useToast } from "@/hooks/use-toast"
+import { formatCurrency, formatDate } from "@/lib/utils"
 
 export default function BatchPayPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const [availableAccounts, setAvailableAccounts] = useState<AccountPayable[]>([])
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedVinculo, setSelectedVinculo] = useState<string>("all")
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedAccounts, setSelectedAccounts] = useState<AccountPayable[]>([])
   const [payDate, setPayDate] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("")
-  const [useCreditCard, setUseCreditCard] = useState(false)
-  const [creditCard, setCreditCard] = useState("")
+  const [bankAccountId, setBankAccountId] = useState("")
+  const [processing, setProcessing] = useState(false)
 
-  // Filter available accounts
-  const availableAccounts = useMemo(() => {
-    return mockAccountsPayable
-      .filter((account) => account.status === "em_aberto")
+  useEffect(() => {
+    loadAccounts()
+    loadBankAccounts()
+  }, [])
+
+  const loadAccounts = async () => {
+    setLoading(true)
+    try {
+      const result = await getAccountsPayable({ status: 'em_aberto' })
+      if (result.success) {
+        setAvailableAccounts(result.data || [])
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Erro ao carregar contas",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao carregar contas:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadBankAccounts = async () => {
+    try {
+      const result = await getBankAccounts()
+      if (result.success) {
+        setBankAccounts(result.data || [])
+      } else {
+        toast({
+          title: "Aviso",
+          description: result.error || "Erro ao carregar contas bancárias",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao carregar contas bancárias:", error)
+    }
+  }
+
+  // Filter available accounts based on search and vinculo
+  const filteredAccounts = useMemo(() => {
+    return availableAccounts
       .filter((account) => !selectedAccounts.find((selected) => selected.id === account.id))
       .filter((account) => {
         if (selectedVinculo !== "all" && account.vinculo !== selectedVinculo) return false
         if (searchTerm && !account.description.toLowerCase().includes(searchTerm.toLowerCase())) return false
         return true
       })
-  }, [selectedAccounts, selectedVinculo, searchTerm])
+  }, [availableAccounts, selectedAccounts, selectedVinculo, searchTerm])
 
   // Calculate total value
   const totalValue = useMemo(() => {
-    return selectedAccounts.reduce((sum, account) => sum + account.value, 0)
+    return selectedAccounts.reduce((sum, account) => sum + account.remaining_value, 0)
   }, [selectedAccounts])
 
   const addAccount = (account: AccountPayable) => {
@@ -48,16 +95,52 @@ export default function BatchPayPage() {
     setSelectedAccounts((prev) => prev.filter((account) => account.id !== accountId))
   }
 
-  const handleConfirm = () => {
-    console.log("Batch pay:", {
-      accounts: selectedAccounts,
-      payDate,
-      paymentMethod,
-      useCreditCard,
-      creditCard: useCreditCard ? creditCard : null,
-      totalValue,
-    })
-    router.push("/financeiro/contas-pagar")
+  const handleConfirm = async () => {
+    if (!bankAccountId || !payDate || selectedAccounts.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setProcessing(true)
+    try {
+      const payments = selectedAccounts.map(account => ({
+        account_payable_id: account.id,
+        payment_value: account.remaining_value,
+      }))
+
+      const result = await createBatchPayablePayments(payments, {
+        payment_date: payDate,
+        payment_method: 'Transferência bancária',
+        bank_account_id: bankAccountId,
+      })
+
+      if (result.success) {
+        toast({
+          title: "Sucesso",
+          description: `${payments.length} pagamento(s) processado(s) com sucesso`,
+        })
+        router.push("/financeiro/contas-pagar")
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Erro ao processar pagamentos",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao processar lote:", error)
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao processar pagamentos",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const handleCancel = () => {
@@ -102,15 +185,15 @@ export default function BatchPayPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="search">Buscar conta</Label>
+              <Label htmlFor="search">Buscar</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Filtrar pela descrição"
+                  placeholder="Código, descrição, contraparte..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-9"
                 />
               </div>
             </div>
@@ -119,7 +202,7 @@ export default function BatchPayPage() {
 
         {/* Seção 2: Tabela de Contas Disponíveis */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Contas Disponíveis</h3>
+          <h3 className="text-lg font-semibold">Contas Disponíveis ({filteredAccounts.length})</h3>
           <div className="border rounded-lg" style={{ maxHeight: "240px", overflowY: "auto" }}>
             <Table>
               <TableHeader className="sticky top-0 bg-background">
@@ -133,13 +216,13 @@ export default function BatchPayPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {availableAccounts.map((account) => (
+                {filteredAccounts.map((account) => (
                   <TableRow key={account.id}>
                     <TableCell className="font-mono text-sm">{account.code}</TableCell>
                     <TableCell>{account.description}</TableCell>
                     <TableCell>{account.counterparty}</TableCell>
-                    <TableCell>R$ {account.value.toLocaleString("pt-BR")}</TableCell>
-                    <TableCell>{account.dueDate.toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{formatCurrency(account.remaining_value)}</TableCell>
+                    <TableCell>{formatDate(account.due_date)}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" onClick={() => addAccount(account)}>
                         <Plus className="h-4 w-4" />
@@ -147,10 +230,10 @@ export default function BatchPayPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {availableAccounts.length === 0 && (
+                {filteredAccounts.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      Nenhuma conta disponível
+                      {loading ? "Carregando..." : "Nenhuma conta disponível"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -161,7 +244,7 @@ export default function BatchPayPage() {
 
         {/* Seção 3: Tabela de Contas Selecionadas */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Contas Selecionadas</h3>
+          <h3 className="text-lg font-semibold">Contas Selecionadas ({selectedAccounts.length})</h3>
           <div className="border rounded-lg" style={{ maxHeight: "240px", overflowY: "auto" }}>
             <Table>
               <TableHeader className="sticky top-0 bg-background">
@@ -180,8 +263,8 @@ export default function BatchPayPage() {
                     <TableCell className="font-mono text-sm">{account.code}</TableCell>
                     <TableCell>{account.description}</TableCell>
                     <TableCell>{account.counterparty}</TableCell>
-                    <TableCell>R$ {account.value.toLocaleString("pt-BR")}</TableCell>
-                    <TableCell>{account.dueDate.toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{formatCurrency(account.remaining_value)}</TableCell>
+                    <TableCell>{formatDate(account.due_date)}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" onClick={() => removeAccount(account.id)}>
                         <Minus className="h-4 w-4" />
@@ -216,54 +299,33 @@ export default function BatchPayPage() {
               />
             </div>
             <div className="space-y-2 flex-1">
-              <Label htmlFor="paymentMethod">Forma de pagamento</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <Label htmlFor="bankAccountId">Conta bancária</Label>
+              <Select value={bankAccountId} onValueChange={setBankAccountId}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione a conta bancária" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="conta-corrente">Conta Corrente - Banco do Brasil</SelectItem>
-                  <SelectItem value="poupanca">Poupança - Caixa Econômica</SelectItem>
-                  <SelectItem value="conta-digital">Conta Digital - Nubank</SelectItem>
+                  {bankAccounts.length === 0 ? (
+                    <SelectItem value="_no_accounts" disabled>
+                      Nenhuma conta disponível
+                    </SelectItem>
+                  ) : (
+                    bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                        {account.code && ` - ${account.code}`}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Valor total</Label>
               <div className="p-3 border rounded-lg bg-background min-w-[200px]">
-                <span className="text-2xl font-bold text-foreground">R$ {totalValue.toLocaleString("pt-BR")}</span>
+                <span className="text-2xl font-bold text-foreground">{formatCurrency(totalValue)}</span>
               </div>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="useCreditCard"
-                checked={useCreditCard}
-                onCheckedChange={(checked) => {
-                  setUseCreditCard(checked as boolean)
-                  if (!checked) setCreditCard("")
-                }}
-              />
-              <Label htmlFor="useCreditCard">Utilizar cartão de crédito</Label>
-            </div>
-
-            {useCreditCard && (
-              <div className="space-y-2 max-w-md">
-                <Label htmlFor="creditCard">Cartão de crédito</Label>
-                <Select value={creditCard} onValueChange={setCreditCard}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cartão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="visa-1234">Visa **** 1234</SelectItem>
-                    <SelectItem value="master-5678">Mastercard **** 5678</SelectItem>
-                    <SelectItem value="elo-9012">Elo **** 9012</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
         </div>
 
@@ -274,9 +336,9 @@ export default function BatchPayPage() {
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={selectedAccounts.length === 0 || !payDate || !paymentMethod || (useCreditCard && !creditCard)}
+            disabled={selectedAccounts.length === 0 || !payDate || !bankAccountId || processing}
           >
-            Confirmar
+            {processing ? "Processando..." : "Confirmar"}
           </Button>
         </div>
       </div>

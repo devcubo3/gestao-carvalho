@@ -5,9 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Building, Car, MapPin, CreditCard, X } from "lucide-react"
-import { mockProperties, mockVehicles, mockDevelopments, mockCredits } from "@/lib/mock-data"
+import { Building, Car, MapPin, CreditCard, X, Loader2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+import type { Property, Vehicle, Credit, Development } from "@/lib/types"
 
 interface SearchItemModalProps {
   open: boolean
@@ -21,32 +22,94 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedItem, setSelectedItem] = React.useState<any>(null)
   const [percentage, setPercentage] = React.useState("")
+  const [loading, setLoading] = React.useState(false)
+  const [properties, setProperties] = React.useState<Property[]>([])
+  const [vehicles, setVehicles] = React.useState<Vehicle[]>([])
+  const [credits, setCredits] = React.useState<Credit[]>([])
+  const [developments, setDevelopments] = React.useState<Development[]>([])
+
+  // Fetch data based on item type
+  React.useEffect(() => {
+    if (!open) return
+
+    const fetchData = async () => {
+      setLoading(true)
+      const supabase = createClient()
+
+      try {
+        switch (itemType) {
+          case "Imóveis":
+            const { data: propsData } = await supabase
+              .from('properties')
+              .select('*')
+              .eq('status', 'disponivel')
+              .order('identification')
+            setProperties(propsData || [])
+            break
+
+          case "Veículos":
+            const { data: veicData } = await supabase
+              .from('vehicles')
+              .select('*')
+              .eq('status', 'disponivel')
+              .order('model')
+            setVehicles(veicData || [])
+            break
+
+          case "Créditos":
+            const { data: credData } = await supabase
+              .from('credits')
+              .select('*')
+              .eq('status', 'disponivel')
+              .order('code')
+            setCredits(credData || [])
+            break
+
+          case "Empreendimentos":
+            const { data: devData } = await supabase
+              .from('developments')
+              .select('*')
+              .eq('status', 'disponivel')
+              .order('name')
+            setDevelopments(devData || [])
+            break
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [open, itemType])
 
   // Get items based on type
   const getItemsByType = (type: string) => {
     switch (type) {
       case "Imóveis":
-        return mockProperties.map((p) => ({ ...p, type: "Imóvel", icon: Building, searchField: p.name }))
+        return properties.map((p) => ({ ...p, type: "Imóvel", icon: Building, searchField: p.identification, value: p.reference_value }))
       case "Veículos":
-        return mockVehicles.map((v) => ({
+        return vehicles.map((v) => ({
           ...v,
           type: "Veículo",
           icon: Car,
           searchField: `${v.brand} ${v.model}`,
+          value: v.reference_value || 0,
         }))
       case "Empreendimentos":
-        return mockDevelopments.map((d) => ({
+        return developments.map((d) => ({
           ...d,
           type: "Empreendimento",
           icon: MapPin,
           searchField: d.name,
+          value: d.reference_value || 0,
         }))
       case "Créditos":
-        return mockCredits.map((c) => ({
+        return credits.map((c) => ({
           ...c,
           type: "Crédito",
           icon: CreditCard,
-          searchField: c.description,
+          searchField: c.code,
+          value: c.current_balance,
         }))
       default:
         return []
@@ -75,11 +138,11 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
     if (!selectedItem || !percentage) return
 
     const percentageValue = Number.parseFloat(percentage) / 100
-    const itemValue = (selectedItem.value || selectedItem.referenceValue || 0) * percentageValue
+    const itemValue = (selectedItem.value || 0) * percentageValue
 
     onItemAdded({
-      id: Date.now().toString(),
-      name: selectedItem.name || selectedItem.description,
+      id: selectedItem.id,
+      name: selectedItem.searchField,
       type: selectedItem.type,
       value: itemValue,
       code: selectedItem.code,
@@ -90,6 +153,10 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
     setSelectedItem(null)
     setPercentage("")
     setSearchTerm("")
+    setProperties([])
+    setVehicles([])
+    setCredits([])
+    setDevelopments([])
     onOpenChange(false)
   }
 
@@ -97,6 +164,10 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
     setSelectedItem(null)
     setPercentage("")
     setSearchTerm("")
+    setProperties([])
+    setVehicles([])
+    setCredits([])
+    setDevelopments([])
     onOpenChange(false)
   }
 
@@ -110,7 +181,11 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
         </DialogHeader>
 
         <div className="space-y-4">
-          {!selectedItem ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : !selectedItem ? (
             <>
               <div className="space-y-2">
                 <Label htmlFor="search">Buscar {itemType}</Label>
@@ -135,13 +210,13 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
                           <item.icon className="h-4 w-4" />
                           <div>
                             <div className="text-sm font-medium">{item.searchField}</div>
-                            {(itemType === "Veículos" || itemType === "Empreendimentos") && (
+                            {item.code && (
                               <div className="text-xs text-muted-foreground">{item.code}</div>
                             )}
                           </div>
                         </div>
                         <div className="text-sm font-medium">
-                          {formatCurrency(item.value || item.referenceValue || 0)}
+                          {formatCurrency(item.value || 0)}
                         </div>
                       </div>
                     </div>
@@ -161,7 +236,7 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
                     <selectedItem.icon className="h-4 w-4" />
                     <div>
                       <div className="text-sm font-medium">{selectedItem.searchField}</div>
-                      {(itemType === "Veículos" || itemType === "Empreendimentos") && (
+                      {selectedItem.code && (
                         <div className="text-xs text-muted-foreground">{selectedItem.code}</div>
                       )}
                     </div>
@@ -171,7 +246,7 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
                   </Button>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Valor: {formatCurrency(selectedItem.value || selectedItem.referenceValue || 0)}
+                  Valor: {formatCurrency(selectedItem.value || 0)}
                 </div>
               </div>
 
@@ -195,7 +270,7 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
                     <div className="font-medium text-primary">
                       Valor a incluir:{" "}
                       {formatCurrency(
-                        ((selectedItem.value || selectedItem.referenceValue || 0) *
+                        ((selectedItem.value || 0) *
                           Number.parseFloat(percentage || "0")) /
                           100,
                       )}

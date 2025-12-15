@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -16,32 +16,50 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/utils"
-import type { AccountReceivable } from "@/lib/types"
+import type { AccountReceivable, BankAccount } from "@/lib/types"
+import { getBankAccounts } from "@/app/actions/cash"
 
 interface ReceiveDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   account: AccountReceivable | null
-  onSubmit: (data: { receiveDate: string; paymentMethod: string }) => void
+  onSubmit: (data: { receiveDate: string; paymentMethod: string; bankAccountId: string }) => void
+  submitting?: boolean
 }
 
-export function ReceiveDialog({ open, onOpenChange, account, onSubmit }: ReceiveDialogProps) {
+export function ReceiveDialog({ open, onOpenChange, account, onSubmit, submitting = false }: ReceiveDialogProps) {
   const [receiveDate, setReceiveDate] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("")
+  const [bankAccountId, setBankAccountId] = useState("")
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+
+  useEffect(() => {    if (open) {
+      loadBankAccounts()
+      // Set today's date as default
+      const today = new Date().toISOString().split('T')[0]
+      setReceiveDate(today)
+    }
+  }, [open])
+
+  const loadBankAccounts = async () => {
+    const result = await getBankAccounts()
+    if (result.success && result.data) {
+      setBankAccounts(result.data.filter((acc: BankAccount) => acc.status === 'ativo'))
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!receiveDate || !paymentMethod) return
+    if (!receiveDate || !bankAccountId) return
 
     onSubmit({
       receiveDate,
-      paymentMethod,
+      paymentMethod: 'Transferência',
+      bankAccountId,
     })
 
     // Reset form
     setReceiveDate("")
-    setPaymentMethod("")
-    onOpenChange(false)
+    setBankAccountId("")
   }
 
   if (!account) return null
@@ -56,15 +74,19 @@ export function ReceiveDialog({ open, onOpenChange, account, onSubmit }: Receive
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label>Código</Label>
+              <Input value={account.code} disabled className="font-mono" />
+            </div>
+            <div className="grid gap-2">
               <Label>Descrição da conta</Label>
               <Input value={account.description} disabled />
             </div>
             <div className="grid gap-2">
-              <Label>Valor total</Label>
-              <Input value={formatCurrency(account.value)} disabled />
+              <Label>Valor a receber</Label>
+              <Input value={formatCurrency(account.remaining_value)} disabled className="font-bold text-green-600" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="receiveDate">Data de recebimento</Label>
+              <Label htmlFor="receiveDate">Data de recebimento *</Label>
               <Input
                 id="receiveDate"
                 type="date"
@@ -74,25 +96,28 @@ export function ReceiveDialog({ open, onOpenChange, account, onSubmit }: Receive
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="paymentMethod">Forma de recebimento</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod} required>
+              <Label htmlFor="bankAccount">Conta bancária *</Label>
+              <Select value={bankAccountId} onValueChange={setBankAccountId} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma conta bancária" />
+                  <SelectValue placeholder="Selecione a conta" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="banco-brasil">Banco do Brasil - CC 12345-6</SelectItem>
-                  <SelectItem value="itau">Itaú - CC 98765-4</SelectItem>
-                  <SelectItem value="santander">Santander - CC 55555-1</SelectItem>
-                  <SelectItem value="caixa">Caixa Econômica - CC 77777-8</SelectItem>
+                  {bankAccounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} - {formatCurrency(acc.balance)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancelar
             </Button>
-            <Button type="submit">Confirmar Recebimento</Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Processando..." : "Confirmar Recebimento"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

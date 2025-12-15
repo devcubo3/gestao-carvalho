@@ -1,10 +1,13 @@
 import { MainLayout } from "@/components/main-layout"
 import { VehiclesTable } from "@/components/database/vehicles-table"
-import { mockVehicles } from "@/lib/mock-data"
+import { getVehicles } from "@/app/actions/vehicles"
 
-export default function VehiclesPage() {
+export default async function VehiclesPage() {
+  const result = await getVehicles()
+  const vehicles = result.success && result.data ? result.data : []
+
   return (
-    <MainLayout breadcrumbs={[{ label: "Banco de Dados" }, { label: "Veículos" }]}>
+    <MainLayout breadcrumbs={[{ label: "Patrimônio" }, { label: "Veículos" }]}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -13,7 +16,7 @@ export default function VehiclesPage() {
           </div>
         </div>
 
-        <VehiclesTable vehicles={mockVehicles} />
+        <VehiclesTable vehicles={vehicles} />
       </div>
     </MainLayout>
   )

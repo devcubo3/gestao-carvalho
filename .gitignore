@@ -19,6 +19,10 @@ yarn-error.log*
 # env files
 .env*
 
+# MCP configuration with sensitive tokens
+.claude/mcp.json
+.vscode/mcp.json
+
 # vercel
 .vercel
 

@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building, X } from "lucide-react"
-import { mockCompanies } from "@/lib/mock-data"
+import { Building, X, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/lib/supabase/client"
+import type { Company } from "@/lib/types"
 
 interface SearchCompanyModalProps {
   open: boolean
@@ -19,12 +20,42 @@ interface SearchCompanyModalProps {
 
 export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: SearchCompanyModalProps) {
   const [searchTerm, setSearchTerm] = React.useState("")
-  const [selectedCompany, setSelectedCompany] = React.useState<any>(null)
+  const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
   const [percentage, setPercentage] = React.useState("")
+  const [companies, setCompanies] = React.useState<Company[]>([])
+  const [loading, setLoading] = React.useState(false)
   const { toast } = useToast()
 
-  const filteredCompanies = mockCompanies.filter(
-    (company) => company.name.toLowerCase().includes(searchTerm.toLowerCase()) || company.cnpj.includes(searchTerm),
+  React.useEffect(() => {
+    if (open) {
+      fetchCompanies()
+    }
+  }, [open])
+
+  const fetchCompanies = async () => {
+    setLoading(true)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('status', 'ativo')
+      .order('trade_name')
+    
+    if (error) {
+      console.error('Erro ao buscar empresas:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as empresas",
+        variant: "destructive",
+      })
+    } else {
+      setCompanies(data || [])
+    }
+    setLoading(false)
+  }
+
+  const filteredCompanies = companies.filter(
+    (company) => company.trade_name.toLowerCase().includes(searchTerm.toLowerCase()) || company.cnpj.includes(searchTerm),
   )
 
   const handleSelectCompany = (company: any) => {
@@ -47,11 +78,11 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
 
     const partyData = {
       id: selectedCompany.id,
-      name: selectedCompany.name,
+      name: selectedCompany.trade_name,
       type: "company" as const,
       document: selectedCompany.cnpj,
-      email: selectedCompany.email,
-      phone: selectedCompany.phone,
+      email: undefined,
+      phone: undefined,
       percentage: Number.parseFloat(percentage) || 0,
     }
 
@@ -61,11 +92,12 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
     setSearchTerm("")
     setSelectedCompany(null)
     setPercentage("")
+    setCompanies([])
     onOpenChange(false)
 
     toast({
       title: "Empresa adicionada",
-      description: `${selectedCompany.name} foi adicionada ao ${side === "A" ? "Lado 1" : "Lado 2"}`,
+      description: `${selectedCompany.trade_name} foi adicionada ao ${side === "A" ? "Lado A" : "Lado B"}`,
     })
   }
 
@@ -87,14 +119,18 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
             />
           </div>
 
-          {selectedCompany ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : selectedCompany ? (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="p-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Building className="h-4 w-4 text-green-600" />
                     <div>
-                      <div className="font-medium text-green-900 text-sm">{selectedCompany.name}</div>
+                      <div className="font-medium text-green-900 text-sm">{selectedCompany.trade_name}</div>
                       <div className="text-xs text-green-700">{selectedCompany.cnpj}</div>
                     </div>
                   </div>
@@ -110,31 +146,29 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
               </CardContent>
             </Card>
           ) : (
-            searchTerm && (
-              <div className="max-h-48 overflow-y-auto space-y-1">
-                {filteredCompanies.length > 0 ? (
-                  filteredCompanies.map((company) => (
-                    <Card
-                      key={company.id}
-                      className="cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => handleSelectCompany(company)}
-                    >
-                      <CardContent className="p-2">
-                        <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4 text-gray-600" />
-                          <div>
-                            <div className="font-medium text-sm">{company.name}</div>
-                            <div className="text-xs text-gray-500">{company.cnpj}</div>
-                          </div>
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {filteredCompanies.length > 0 ? (
+                filteredCompanies.map((company) => (
+                  <Card
+                    key={company.id}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSelectCompany(company)}
+                  >
+                    <CardContent className="p-2">
+                      <div className="flex items-center gap-2">
+                        <Building className="h-4 w-4 text-gray-600" />
+                        <div>
+                          <div className="font-medium text-sm">{company.trade_name}</div>
+                          <div className="text-xs text-gray-500">{company.cnpj}</div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  <div className="text-center py-2 text-gray-500 text-sm">Nenhuma empresa encontrada</div>
-                )}
-              </div>
-            )
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-center py-2 text-gray-500 text-sm">Nenhuma empresa encontrada</div>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">

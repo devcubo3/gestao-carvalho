@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MainLayout } from "@/components/main-layout"
 import { AccountsPayableTable } from "@/components/financial/accounts-payable-table"
 import { PayablesSummaryCards } from "@/components/financial/payables-summary-cards"
@@ -9,14 +9,79 @@ import {
   type AccountsPayableFilters as FiltersType,
 } from "@/components/financial/accounts-payable-filters"
 import { Button } from "@/components/ui/button"
-import { mockAccountsPayable } from "@/lib/mock-data"
+import { getAccountsPayable } from "@/app/actions/payables"
+import type { AccountPayable } from "@/lib/types"
 import { Users } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function AccountsPayablePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [filters, setFilters] = useState<FiltersType>({})
-  const [filteredAccounts, setFilteredAccounts] = useState(mockAccountsPayable)
+  const [accounts, setAccounts] = useState<AccountPayable[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const loadAccounts = async () => {
+    setLoading(true)
+    try {
+      // Preparar filtros para API
+      const apiFilters: any = {}
+
+      if (filters.dateFrom) {
+        apiFilters.dateFrom = filters.dateFrom.toISOString().split('T')[0]
+      }
+      if (filters.dateTo) {
+        apiFilters.dateTo = filters.dateTo.toISOString().split('T')[0]
+      }
+      if (filters.status && filters.status !== '_all') {
+        apiFilters.status = filters.status
+      }
+      if (filters.code) {
+        apiFilters.code = filters.code
+      }
+      if (filters.vinculo) {
+        apiFilters.vinculo = filters.vinculo
+      }
+      if (filters.centroCusto) {
+        apiFilters.centroCusto = filters.centroCusto
+      }
+      if (filters.description) {
+        apiFilters.description = filters.description
+      }
+      if (filters.valueMin) {
+        apiFilters.valueMin = filters.valueMin
+      }
+      if (filters.valueMax) {
+        apiFilters.valueMax = filters.valueMax
+      }
+
+      const result = await getAccountsPayable(apiFilters)
+
+      if (result.success) {
+        setAccounts(result.data || [])
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Erro ao carregar contas",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao carregar contas:", error)
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao carregar contas",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAccounts()
+  }, [])
 
   const handleFiltersChange = (newFilters: FiltersType) => {
     setFilters(newFilters)
@@ -24,47 +89,10 @@ export default function AccountsPayablePage() {
 
   const handleClearFilters = () => {
     setFilters({})
-    setFilteredAccounts(mockAccountsPayable)
   }
 
   const handleApplyFilters = () => {
-    let filtered = mockAccountsPayable
-
-    if (filters.dateFrom) {
-      filtered = filtered.filter((account) => new Date(account.dueDate) >= filters.dateFrom!)
-    }
-
-    if (filters.dateTo) {
-      filtered = filtered.filter((account) => new Date(account.dueDate) <= filters.dateTo!)
-    }
-
-    if (filters.code) {
-      filtered = filtered.filter((account) => account.code.toLowerCase().includes(filters.code!.toLowerCase()))
-    }
-
-    if (filters.vinculo) {
-      filtered = filtered.filter((account) => account.vinculo === filters.vinculo)
-    }
-
-    if (filters.centroCusto) {
-      filtered = filtered.filter((account) => account.centroCusto === filters.centroCusto)
-    }
-
-    if (filters.description) {
-      filtered = filtered.filter((account) =>
-        account.description.toLowerCase().includes(filters.description!.toLowerCase()),
-      )
-    }
-
-    if (filters.valueMin) {
-      filtered = filtered.filter((account) => account.value >= filters.valueMin!)
-    }
-
-    if (filters.valueMax) {
-      filtered = filtered.filter((account) => account.value <= filters.valueMax!)
-    }
-
-    setFilteredAccounts(filtered)
+    loadAccounts()
   }
 
   return (
@@ -81,7 +109,7 @@ export default function AccountsPayablePage() {
           </Button>
         </div>
 
-        <PayablesSummaryCards accounts={filteredAccounts} />
+        <PayablesSummaryCards accounts={accounts} />
 
         <AccountsPayableFilters
           filters={filters}
@@ -90,7 +118,7 @@ export default function AccountsPayablePage() {
           onApplyFilters={handleApplyFilters}
         />
 
-        <AccountsPayableTable accounts={filteredAccounts} />
+        <AccountsPayableTable accounts={accounts} loading={loading} onRefresh={loadAccounts} />
       </div>
     </MainLayout>
   )
