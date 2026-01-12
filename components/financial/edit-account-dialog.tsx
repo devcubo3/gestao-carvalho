@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { mockVinculos, mockCentrosCusto } from "@/lib/mock-data"
+import { useCategories } from "@/hooks/use-categories"
 import { createClient } from "@/lib/supabase/client"
 import type { AccountReceivable, Person, Company } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
@@ -30,6 +30,8 @@ interface EditAccountDialogProps {
 }
 
 export function EditAccountDialog({ open, onOpenChange, account, onSubmit, submitting = false }: EditAccountDialogProps) {
+  const { categories: vinculos } = useCategories('vinculo')
+  const { categories: centrosCusto } = useCategories('centro_custo')
   const { toast } = useToast()
   const [formData, setFormData] = useState({
     description: "",
@@ -293,9 +295,9 @@ export function EditAccountDialog({ open, onOpenChange, account, onSubmit, submi
                   <SelectValue placeholder="Selecionar vínculo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockVinculos.map((vinculo) => (
-                    <SelectItem key={vinculo} value={vinculo}>
-                      {vinculo}
+                  {vinculos.map((vinculo) => (
+                    <SelectItem key={vinculo.id} value={vinculo.name}>
+                      {vinculo.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -309,9 +311,9 @@ export function EditAccountDialog({ open, onOpenChange, account, onSubmit, submi
                   <SelectValue placeholder="Selecionar centro de custo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockCentrosCusto.map((centro) => (
-                    <SelectItem key={centro} value={centro}>
-                      {centro}
+                  {centrosCusto.map((centro) => (
+                    <SelectItem key={centro.id} value={centro.name}>
+                      {centro.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

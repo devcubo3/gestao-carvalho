@@ -9,18 +9,13 @@ import { z } from 'zod'
 // =====================================================
 
 const accountPayableSchema = z.object({
-  contract_id: z.string().uuid().optional().nullable(),
-  person_id: z.string().uuid().optional().nullable(),
-  company_id: z.string().uuid().optional().nullable(),
   description: z.string().min(3, 'Descrição deve ter no mínimo 3 caracteres'),
-  counterparty: z.string().min(3, 'Contraparte deve ter no mínimo 3 caracteres'),
-  original_value: z.number().positive('Valor deve ser maior que zero'),
+  installment_value: z.number().positive('Valor da parcela deve ser maior que zero'),
   due_date: z.string().or(z.date()),
   vinculo: z.string().min(1, 'Vínculo é obrigatório'),
   centro_custo: z.string().min(1, 'Centro de custo é obrigatório'),
-  installment_current: z.number().int().positive().optional().nullable(),
-  installment_total: z.number().int().positive().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  installment_total: z.number().int().positive('Número de parcelas deve ser maior que zero').default(1),
+  periodicity: z.enum(['semanal', 'mensal', 'semestral', 'anual']).default('mensal'),
 })
 
 const payablePaymentSchema = z.object({
@@ -70,19 +65,13 @@ export async function createAccountPayable(
   data: AccountPayableFormData
 ): Promise<ActionResult> {
   try {
-    console.log('🔵 [createAccountPayable] Dados recebidos:', data)
-    
     const validatedData = accountPayableSchema.parse(data)
-    console.log('✅ [createAccountPayable] Validação OK:', validatedData)
-    
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      console.error('❌ [createAccountPayable] Erro de autenticação:', authError)
       return { success: false, error: 'Usuário não autenticado' }
     }
-    console.log('✅ [createAccountPayable] Usuário autenticado:', user.id)
 
     // Verificar permissão
     const { data: profile } = await supabase
@@ -91,35 +80,110 @@ export async function createAccountPayable(
       .eq('id', user.id)
       .single()
 
-    console.log('🔍 [createAccountPayable] Perfil do usuário:', profile)
-
     if (!profile || !['admin', 'editor'].includes(profile.role)) {
-      console.error('❌ [createAccountPayable] Sem permissão. Role:', profile?.role)
       return { success: false, error: 'Sem permissão para criar contas a pagar' }
     }
 
-    const insertData = {
-      ...validatedData,
-      remaining_value: validatedData.original_value,
-      created_by: user.id,
+    // Calcular valor total
+    const originalValue = validatedData.installment_value * validatedData.installment_total
+
+    // Criar conta única ou múltiplas parcelas
+    if (validatedData.installment_total === 1) {
+      // CONTA ÚNICA
+      const { data: account, error } = await supabase
+        .from('accounts_payable')
+        .insert({
+          description: validatedData.description,
+          original_value: originalValue,
+          remaining_value: originalValue,
+          due_date: validatedData.due_date,
+          vinculo: validatedData.vinculo,
+          centro_custo: validatedData.centro_custo,
+          installment_total: 1,
+          installment_value: validatedData.installment_value,
+          periodicity: validatedData.periodicity,
+          created_by: user.id,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao criar conta:', error)
+        console.error('Dados enviados:', {
+          description: validatedData.description,
+          original_value: originalValue,
+          remaining_value: originalValue,
+          due_date: validatedData.due_date,
+          vinculo: validatedData.vinculo,
+          centro_custo: validatedData.centro_custo,
+          installment_total: 1,
+          installment_value: validatedData.installment_value,
+          periodicity: validatedData.periodicity,
+          created_by: user.id,
+        })
+        return { success: false, error: `Erro ao criar conta a pagar: ${error.message || JSON.stringify(error)}` }
+      }
+
+      revalidatePath('/financeiro/contas-pagar')
+      return { success: true, data: account }
+    } else {
+      // MÚLTIPLAS PARCELAS - Criar grupo UUID
+      const installmentGroupId = crypto.randomUUID()
+      const accounts = []
+      const baseDate = new Date(validatedData.due_date)
+
+      for (let i = 0; i < validatedData.installment_total; i++) {
+        const dueDate = new Date(baseDate)
+        
+        // Aplicar periodicidade correta
+        switch (validatedData.periodicity) {
+          case 'semanal':
+            dueDate.setDate(dueDate.getDate() + (i * 7))
+            break
+          case 'mensal':
+            dueDate.setMonth(dueDate.getMonth() + i)
+            break
+          case 'semestral':
+            dueDate.setMonth(dueDate.getMonth() + (i * 6))
+            break
+          case 'anual':
+            dueDate.setFullYear(dueDate.getFullYear() + i)
+            break
+        }
+
+        accounts.push({
+          description: `${validatedData.description} - Parcela ${i + 1}/${validatedData.installment_total}`,
+          original_value: validatedData.installment_value,
+          remaining_value: validatedData.installment_value,
+          due_date: dueDate.toISOString().split('T')[0],
+          vinculo: validatedData.vinculo,
+          centro_custo: validatedData.centro_custo,
+          installment_total: validatedData.installment_total,
+          installment_value: validatedData.installment_value,
+          periodicity: validatedData.periodicity,
+          installment_group_id: installmentGroupId,
+          created_by: user.id,
+        })
+      }
+
+      const { data: createdAccounts, error } = await supabase
+        .from('accounts_payable')
+        .insert(accounts)
+        .select()
+
+      if (error) {
+        console.error('Erro ao criar parcelas:', error)
+        console.error('Número de parcelas:', accounts.length)
+        console.error('Primeira parcela:', accounts[0])
+        return { success: false, error: `Erro ao criar parcelas: ${error.message || JSON.stringify(error)}` }
+      }
+
+      revalidatePath('/financeiro/contas-pagar')
+      return { 
+        success: true, 
+        data: createdAccounts
+      }
     }
-    console.log('📝 [createAccountPayable] Dados para inserção:', insertData)
-
-    const { data: account, error } = await supabase
-      .from('accounts_payable')
-      .insert(insertData)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('❌ [createAccountPayable] Erro ao inserir no banco:', error)
-      return { success: false, error: `Erro ao criar conta a pagar: ${error.message}` }
-    }
-    
-    console.log('✅ [createAccountPayable] Conta criada com sucesso:', account)
-
-    revalidatePath('/financeiro/contas-pagar')
-    return { success: true, data: account }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return {
@@ -128,8 +192,11 @@ export async function createAccountPayable(
         fieldErrors: formatZodError(error),
       }
     }
-    console.error('Erro ao criar conta:', error)
-    return { success: false, error: 'Erro inesperado' }
+    console.error('Erro geral ao criar conta a pagar:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao criar conta a pagar'
+    }
   }
 }
 
@@ -204,10 +271,17 @@ export async function getAccountsPayable(filters?: {
 
 export async function updateAccountPayable(
   id: string,
-  data: Partial<AccountPayableFormData>
+  data: Partial<Pick<AccountPayableFormData, 'description' | 'due_date' | 'vinculo' | 'centro_custo'>>
 ): Promise<ActionResult> {
   try {
-    const validatedData = accountPayableSchema.partial().parse(data)
+    const updateSchema = z.object({
+      description: z.string().min(3, 'Descrição deve ter no mínimo 3 caracteres').optional(),
+      due_date: z.string().or(z.date()).optional(),
+      vinculo: z.string().min(1, 'Vínculo é obrigatório').optional(),
+      centro_custo: z.string().min(1, 'Centro de custo é obrigatório').optional(),
+    })
+    
+    const validatedData = updateSchema.parse(data)
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()

@@ -68,7 +68,7 @@ export function PayDialog({ open, onOpenChange, account, onSubmit }: PayDialogPr
             </div>
             <div className="grid gap-2">
               <Label>Valor total</Label>
-              <Input value={formatCurrency(account.value)} disabled />
+              <Input value={formatCurrency(account.remaining_value)} disabled />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="paymentDate">Data de pagamento</Label>

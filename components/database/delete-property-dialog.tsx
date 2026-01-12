@@ -59,24 +59,24 @@ export function DeletePropertyDialog({
             <AlertTriangle className="h-5 w-5" />
             Excluir Imóvel Permanentemente
           </DialogTitle>
-          <DialogDescription className="text-destructive">
+          <DialogDescription>
             ⚠️ Esta ação NÃO pode ser desfeita! Os dados serão removidos permanentemente do banco de dados.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
-              <p className="text-sm font-semibold text-destructive mb-3">
+            <div className="rounded-lg border p-4">
+              <p className="text-sm font-semibold mb-3">
                 Você está prestes a excluir PERMANENTEMENTE:
               </p>
-              <div className="space-y-1 bg-background/50 p-3 rounded">
+              <div className="space-y-1 bg-muted/50 p-3 rounded">
                 <p className="font-medium">{property?.identification}</p>
                 <p className="text-sm text-muted-foreground">Código: {property?.code}</p>
                 <p className="text-sm text-muted-foreground">
                   Endereço: {property?.street}, {property?.number} - {property?.city}/{property?.state}
                 </p>
               </div>
-              <p className="text-xs text-destructive/80 mt-3">
+              <p className="text-xs text-muted-foreground mt-3">
                 ⚠️ Todos os dados relacionados serão removidos permanentemente
               </p>
             </div>

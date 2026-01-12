@@ -221,7 +221,7 @@ export async function createPerson(data: PersonFormData): Promise<ActionResult> 
 // Action: Listar Pessoas
 // =====================================================
 
-export async function getPeople(searchTerm?: string) {
+export async function getPeople(searchTerm?: string, showInactive: boolean = false) {
   try {
     const supabase = await createClient()
     
@@ -237,8 +237,10 @@ export async function getPeople(searchTerm?: string) {
     let query = supabase
       .from('people')
       .select('*')
-      .eq('status', 'ativo')
       .order('created_at', { ascending: false })
+    
+    // Filtrar por status: se showInactive = true, mostra apenas inativos, senão mostra apenas ativos
+    query = query.eq('status', showInactive ? 'inativo' : 'ativo')
     
     // Aplicar filtro de busca
     if (searchTerm && searchTerm.trim() !== '') {
@@ -563,6 +565,156 @@ export async function getUserPermissions(): Promise<ActionResult<{ role: string;
     return {
       success: false,
       error: 'Erro ao verificar permissões',
+    }
+  }
+}
+
+// =====================================================
+// Action: Excluir Pessoa Permanentemente
+// =====================================================
+
+export async function deletePersonPermanently(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    
+    // Verificar autenticação e permissão de admin
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return {
+        success: false,
+        error: 'Usuário não autenticado',
+      }
+    }
+    
+    // Verificar se é admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    if (!profile || profile.role !== 'admin') {
+      return {
+        success: false,
+        error: 'Apenas administradores podem excluir pessoas permanentemente',
+      }
+    }
+    
+    // Verificar se a pessoa está inativa
+    const { data: person } = await supabase
+      .from('people')
+      .select('status')
+      .eq('id', id)
+      .single()
+    
+    if (!person || person.status !== 'inativo') {
+      return {
+        success: false,
+        error: 'Apenas pessoas inativas podem ser excluídas permanentemente',
+      }
+    }
+    
+    // Excluir permanentemente
+    const { error: deleteError } = await supabase
+      .from('people')
+      .delete()
+      .eq('id', id)
+    
+    if (deleteError) {
+      console.error('Erro ao excluir pessoa permanentemente:', deleteError)
+      return {
+        success: false,
+        error: 'Erro ao excluir pessoa. Verifique se não existem vínculos com contratos ou outras dependências.',
+      }
+    }
+    
+    // Revalidar cache
+    revalidatePath('/cadastros/pessoas')
+    
+    return {
+      success: true,
+    }
+    
+  } catch (error) {
+    console.error('Erro ao excluir pessoa permanentemente:', error)
+    return {
+      success: false,
+      error: 'Erro inesperado ao excluir pessoa',
+    }
+  }
+}
+
+// =====================================================
+// Action: Reativar Pessoa
+// =====================================================
+
+export async function reactivatePerson(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    
+    // Verificar autenticação e permissão
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return {
+        success: false,
+        error: 'Usuário não autenticado',
+      }
+    }
+    
+    // Verificar permissões (admin ou editor)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    if (!profile || !['admin', 'editor'].includes(profile.role)) {
+      return {
+        success: false,
+        error: 'Você não tem permissão para reativar pessoas',
+      }
+    }
+    
+    // Verificar se a pessoa está inativa
+    const { data: person } = await supabase
+      .from('people')
+      .select('status')
+      .eq('id', id)
+      .single()
+    
+    if (!person || person.status !== 'inativo') {
+      return {
+        success: false,
+        error: 'Esta pessoa já está ativa',
+      }
+    }
+    
+    // Reativar pessoa
+    const { error: updateError } = await supabase
+      .from('people')
+      .update({ status: 'ativo' })
+      .eq('id', id)
+    
+    if (updateError) {
+      console.error('Erro ao reativar pessoa:', updateError)
+      return {
+        success: false,
+        error: 'Erro ao reativar pessoa',
+      }
+    }
+    
+    // Revalidar cache
+    revalidatePath('/cadastros/pessoas')
+    
+    return {
+      success: true,
+    }
+    
+  } catch (error) {
+    console.error('Erro ao reativar pessoa:', error)
+    return {
+      success: false,
+      error: 'Erro inesperado ao reativar pessoa',
     }
   }
 }

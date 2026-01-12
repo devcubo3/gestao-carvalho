@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,9 +23,17 @@ interface DeleteAccountDialogProps {
   account: AccountReceivable | AccountPayable | null
   onConfirm: () => void
   submitting?: boolean
+  relatedAccounts?: (AccountReceivable | AccountPayable)[]
 }
 
-export function DeleteAccountDialog({ open, onOpenChange, account, onConfirm, submitting = false }: DeleteAccountDialogProps) {
+export function DeleteAccountDialog({ 
+  open, 
+  onOpenChange, 
+  account, 
+  onConfirm, 
+  submitting = false,
+  relatedAccounts = []
+}: DeleteAccountDialogProps) {
   const [confirmText, setConfirmText] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,6 +44,10 @@ export function DeleteAccountDialog({ open, onOpenChange, account, onConfirm, su
   }
 
   const isValid = confirmText.toLowerCase() === "excluir" && !submitting
+  
+  // Verificar se é uma conta parcelada (tem grupo)
+  const isInstallmentGroup = account && 'installment_group_id' in account && account.installment_group_id
+  const totalRelatedAccounts = isInstallmentGroup ? relatedAccounts.length : 0
   
   // Resetar o campo quando o dialog fechar
   const handleOpenChange = (newOpen: boolean) => {
@@ -58,10 +70,29 @@ export function DeleteAccountDialog({ open, onOpenChange, account, onConfirm, su
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
-              <p className="text-sm font-semibold text-destructive mb-3">Você está prestes a excluir PERMANENTEMENTE:</p>
+              <p className="text-sm font-semibold text-destructive mb-3">
+                {isInstallmentGroup && totalRelatedAccounts > 1
+                  ? `Você está prestes a excluir PERMANENTEMENTE todas as ${totalRelatedAccounts} parcelas:`
+                  : "Você está prestes a excluir PERMANENTEMENTE:"
+                }
+              </p>
               <div className="space-y-1 bg-background/50 p-3 rounded">
                 <p className="font-medium">{account?.description}</p>
                 <p className="text-sm text-muted-foreground">Código: {account?.code}</p>
+                {isInstallmentGroup && totalRelatedAccounts > 1 && (
+                  <div className="mt-3 pt-3 border-t border-destructive/20">
+                    <p className="text-xs font-semibold text-destructive mb-2">
+                      ⚠️ Todas as {totalRelatedAccounts} parcelas serão excluídas:
+                    </p>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {relatedAccounts.map((acc) => (
+                        <div key={acc.id} className="text-xs text-muted-foreground">
+                          • {acc.code} - {acc.description}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <p className="text-xs text-destructive/80 mt-3">⚠️ Todos os dados relacionados serão removidos permanentemente</p>
             </div>

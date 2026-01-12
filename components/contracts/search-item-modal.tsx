@@ -86,7 +86,7 @@ export function SearchItemModal({ open, onOpenChange, onItemAdded, side, itemTyp
   const getItemsByType = (type: string) => {
     switch (type) {
       case "Imóveis":
-        return properties.map((p) => ({ ...p, type: "Imóvel", icon: Building, searchField: p.identification, value: p.reference_value }))
+        return properties.map((p) => ({ ...p, type: "Imóvel", icon: Building, searchField: p.identification, value: p.sale_value }))
       case "Veículos":
         return vehicles.map((v) => ({
           ...v,

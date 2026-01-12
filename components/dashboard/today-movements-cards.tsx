@@ -7,9 +7,12 @@ import { useRouter } from "next/navigation"
 
 interface MovementItem {
   id: string
+  code: string
   description: string
   value: number
-  counterparty: string
+  counterparty?: string
+  vinculo?: string
+  centro_custo?: string
   dueDate: string
 }
 
@@ -64,8 +67,13 @@ export function TodayMovementsCards({
                   className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
                 >
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-mono text-muted-foreground">{item.code}</span>
+                    </div>
                     <p className="text-sm font-medium truncate">{item.description}</p>
-                    <p className="text-xs text-muted-foreground">{item.counterparty}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.vinculo} • {item.centro_custo}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-destructive">{formatCurrency(item.value)}</p>
@@ -116,6 +124,9 @@ export function TodayMovementsCards({
                   className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
                 >
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-mono text-muted-foreground">{item.code}</span>
+                    </div>
                     <p className="text-sm font-medium truncate">{item.description}</p>
                     <p className="text-xs text-muted-foreground">{item.counterparty}</p>
                   </div>

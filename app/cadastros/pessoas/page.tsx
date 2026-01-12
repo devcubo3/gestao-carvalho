@@ -6,6 +6,8 @@ import { PeopleTable } from "@/components/database/people-table"
 import { PersonCreateModal } from "@/components/database/person-create-modal"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
 import { getUserPermissions } from "@/app/actions/people"
 import { useToast } from "@/hooks/use-toast"
@@ -16,6 +18,7 @@ export default function PessoasPage() {
   const [canEdit, setCanEdit] = useState(false)
   const [canDelete, setCanDelete] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [showInactive, setShowInactive] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -74,16 +77,31 @@ export default function PessoasPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Lista de Pessoas</CardTitle>
-            <CardDescription>
-              Visualize e gerencie todas as pessoas cadastradas no sistema
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Lista de Pessoas</CardTitle>
+                <CardDescription>
+                  Visualize e gerencie todas as pessoas cadastradas no sistema
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-inactive"
+                  checked={showInactive}
+                  onCheckedChange={setShowInactive}
+                />
+                <Label htmlFor="show-inactive" className="cursor-pointer">
+                  Mostrar Inativos
+                </Label>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <PeopleTable 
               key={refreshKey} 
               canEdit={canEdit} 
               canDelete={canDelete}
+              showInactive={showInactive}
             />
           </CardContent>
         </Card>

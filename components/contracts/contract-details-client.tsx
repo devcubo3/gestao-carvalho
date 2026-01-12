@@ -23,9 +23,10 @@ import { toast } from "@/hooks/use-toast"
 
 interface ContractDetailsClientProps {
   contract: ContractWithDetails
+  isAdmin?: boolean
 }
 
-export function ContractDetailsClient({ contract }: ContractDetailsClientProps) {
+export function ContractDetailsClient({ contract, isAdmin = false }: ContractDetailsClientProps) {
   const router = useRouter()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState("")
@@ -102,6 +103,18 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
   const sideAItems = contract.items.filter(i => i.side === ('A' as any))
   const sideBItems = contract.items.filter(i => i.side === ('B' as any))
 
+  // Calcular balanceamento correto: (Itens Lado A + Pagamentos Entrada) - (Itens Lado B + Pagamentos Saída)
+  const totalPaymentEntrada = contract.payment_conditions?.reduce((sum, c) => 
+    sum + (c.direction === 'entrada' ? c.condition_value : 0), 0
+  ) || 0
+  const totalPaymentSaida = contract.payment_conditions?.reduce((sum, c) => 
+    sum + (c.direction === 'saida' ? c.condition_value : 0), 0
+  ) || 0
+  
+  const ladoATotal = contract.side_a_total + totalPaymentEntrada
+  const ladoBTotal = contract.side_b_total + totalPaymentSaida
+  const balanceDifference = ladoATotal - ladoBTotal
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -125,10 +138,12 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
               {isActivating ? "Ativando..." : "Ativar Contrato"}
             </Button>
           )}
-          <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Excluir
-          </Button>
+          {isAdmin && (
+            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir
+            </Button>
+          )}
         </div>
       </div>
 
@@ -157,8 +172,8 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
         </CardContent>
       </Card>
 
-      {/* Alerta de Desbalanceamento */}
-      {Math.abs(contract.balance) > 0.01 && (
+      {/* Alerta de Desbalanceamento (se houver) */}
+      {Math.abs(balanceDifference) > 0.01 && (
         <Card className="border-orange-500">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -169,7 +184,7 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
                 </p>
               </div>
               <p className="text-2xl font-bold text-orange-600">
-                Diferença: {formatCurrency(Math.abs(contract.balance))}
+                Diferença: {formatCurrency(Math.abs(balanceDifference))}
               </p>
             </div>
           </CardContent>
@@ -191,14 +206,11 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
               <p className="text-muted-foreground text-sm">Nenhuma parte adicionada</p>
             ) : (
               sideAParties.map((party) => (
-                <div key={party.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{party.party_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {party.party_document} • {party.party_type === 'pessoa' ? 'Pessoa' : 'Empresa'}
-                    </p>
-                  </div>
-                  <Badge variant="outline">{party.gra_percentage}% GRA</Badge>
+                <div key={party.id} className="p-3 bg-muted/50 rounded-lg">
+                  <p className="font-medium">{party.party_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {party.party_document} • {party.party_type === 'pessoa' ? 'Pessoa' : 'Empresa'}
+                  </p>
                 </div>
               ))
             )}
@@ -218,14 +230,11 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
               <p className="text-muted-foreground text-sm">Nenhuma parte adicionada</p>
             ) : (
               sideBParties.map((party) => (
-                <div key={party.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{party.party_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {party.party_document} • {party.party_type === 'pessoa' ? 'Pessoa' : 'Empresa'}
-                    </p>
-                  </div>
-                  <Badge variant="outline">{party.gra_percentage}% GRA</Badge>
+                <div key={party.id} className="p-3 bg-muted/50 rounded-lg">
+                  <p className="font-medium">{party.party_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {party.party_document} • {party.party_type === 'pessoa' ? 'Pessoa' : 'Empresa'}
+                  </p>
                 </div>
               ))
             )}
@@ -260,10 +269,9 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
                     <div className="ml-8 pl-4 border-l-2 space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">Participantes:</p>
                       {item.participants.map((p: any, idx: number) => (
-                        <div key={p.id || idx} className="flex items-center justify-between text-sm">
-                          <span>{p.party_name || 'N/A'}</span>
-                          <Badge variant="outline" className="text-xs">{p.percentage}%</Badge>
-                        </div>
+                        <p key={p.id || idx} className="text-sm">
+                          {p.party_name || 'N/A'}
+                        </p>
                       ))}
                     </div>
                   )}
@@ -298,10 +306,9 @@ export function ContractDetailsClient({ contract }: ContractDetailsClientProps) 
                     <div className="ml-8 pl-4 border-l-2 space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">Participantes:</p>
                       {item.participants.map((p: any, idx: number) => (
-                        <div key={p.id || idx} className="flex items-center justify-between text-sm">
-                          <span>{p.party_name || 'N/A'}</span>
-                          <Badge variant="outline" className="text-xs">{p.percentage}%</Badge>
-                        </div>
+                        <p key={p.id || idx} className="text-sm">
+                          {p.party_name || 'N/A'}
+                        </p>
                       ))}
                     </div>
                   )}

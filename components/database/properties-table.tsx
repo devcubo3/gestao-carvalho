@@ -15,6 +15,7 @@ import { DataTable } from "@/components/ui/data-table"
 import { Plus, MoreHorizontal, Eye, Edit, Trash2, MapPin } from "lucide-react"
 import { PropertyCreateModal } from "./property-create-modal"
 import { EditPropertyDialog } from "./edit-property-dialog"
+import { ViewPropertyDialog } from "./view-property-dialog"
 import { DeletePropertyDialog } from "./delete-property-dialog"
 import { deleteProperty, updateProperty } from "@/app/actions/properties"
 import { useToast } from "@/hooks/use-toast"
@@ -30,6 +31,7 @@ interface PropertiesTableProps {
 export function PropertiesTable({ properties }: PropertiesTableProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false)
+  const [isViewModalOpen, setIsViewModalOpen] = React.useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false)
   const [selectedProperty, setSelectedProperty] = React.useState<Property | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
@@ -60,7 +62,10 @@ export function PropertiesTable({ properties }: PropertiesTableProps) {
     const property = properties.find(p => p.id === propertyId)
     if (!property) return
 
-    if (action === "edit") {
+    if (action === "view") {
+      setSelectedProperty(property)
+      setIsViewModalOpen(true)
+    } else if (action === "edit") {
       setSelectedProperty(property)
       setIsEditModalOpen(true)
     } else if (action === "delete") {
@@ -229,32 +234,39 @@ export function PropertiesTable({ properties }: PropertiesTableProps) {
     {
       key: "actions",
       label: "Ações",
-      width: "w-[100px]",
+      width: "w-[70px]",
       sortable: false,
       render: (property) => (
-        <div className="flex items-center gap-2">
-          {canEdit && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleAction("edit", property.id)}
-              title="Editar"
-            >
-              <Edit className="h-4 w-4" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          {canDelete && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleAction("delete", property.id)}
-              className="text-destructive hover:text-destructive"
-              title="Excluir"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleAction("view", property.id)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Visualizar
+            </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onClick={() => handleAction("edit", property.id)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+            )}
+            {canDelete && (
+              <DropdownMenuItem 
+                onClick={() => handleAction("delete", property.id)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ]
@@ -289,6 +301,12 @@ export function PropertiesTable({ properties }: PropertiesTableProps) {
         onSuccess={() => {
           console.log("Property created successfully")
         }}
+      />
+
+      <ViewPropertyDialog
+        open={isViewModalOpen}
+        onOpenChange={setIsViewModalOpen}
+        property={selectedProperty}
       />
 
       <EditPropertyDialog

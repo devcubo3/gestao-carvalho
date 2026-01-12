@@ -259,12 +259,6 @@ export function AccountsPayableTable({ accounts, loading, onRefresh }: AccountsP
       ),
     },
     {
-      key: "registration_date",
-      label: "Data de Registro",
-      width: "w-32",
-      render: (account) => formatDate(account.registration_date),
-    },
-    {
       key: "description",
       label: "Descrição",
       width: "min-w-[200px]",
@@ -317,7 +311,7 @@ export function AccountsPayableTable({ accounts, loading, onRefresh }: AccountsP
         title="Contas a Pagar"
         data={accounts}
         columns={columns}
-        searchFields={["description", "counterparty", "code"]}
+        searchFields={["description", "code"]}
         searchPlaceholder="Buscar por descrição, código..."
         emptyIcon={<CreditCard className="h-8 w-8 text-muted-foreground" />}
         emptyMessage="Nenhuma conta encontrada"
@@ -381,6 +375,14 @@ export function AccountsPayableTable({ accounts, loading, onRefresh }: AccountsP
         account={selectedAccount}
         onConfirm={handleDelete}
         submitting={submitting}
+        relatedAccounts={
+          selectedAccount && 'installment_group_id' in selectedAccount && selectedAccount.installment_group_id
+            ? accounts.filter(acc => 
+                'installment_group_id' in acc && 
+                acc.installment_group_id === selectedAccount.installment_group_id
+              )
+            : []
+        }
       />
     </div>
   )

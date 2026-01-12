@@ -6,6 +6,8 @@ import { CompaniesTable } from "@/components/database/companies-table"
 import { CompanyCreateModal } from "@/components/database/company-create-modal"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Plus } from "lucide-react"
 import { getUserPermissions } from "@/app/actions/companies"
 import { useToast } from "@/hooks/use-toast"
@@ -17,6 +19,7 @@ export default function EmpresasPage() {
   const [canDelete, setCanDelete] = useState(false)
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showInactive, setShowInactive] = useState(false)
 
   useEffect(() => {
     loadPermissions()
@@ -74,12 +77,34 @@ export default function EmpresasPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Lista de Empresas</CardTitle>
-            <CardDescription>Visualize e gerencie todas as empresas cadastradas no sistema</CardDescription>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1.5">
+                <CardTitle>Lista de Empresas</CardTitle>
+                <CardDescription>Visualize e gerencie todas as empresas cadastradas no sistema</CardDescription>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-inactive"
+                  checked={showInactive}
+                  onCheckedChange={setShowInactive}
+                />
+                <Label 
+                  htmlFor="show-inactive"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Mostrar Inativos
+                </Label>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {!isLoadingPermissions && (
-              <CompaniesTable key={refreshKey} canEdit={canEdit} canDelete={canDelete} />
+              <CompaniesTable 
+                key={refreshKey} 
+                canEdit={canEdit} 
+                canDelete={canDelete} 
+                showInactive={showInactive}
+              />
             )}
           </CardContent>
         </Card>

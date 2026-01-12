@@ -142,7 +142,10 @@ export interface Property {
   // Características
   area: number
   registry: string
-  reference_value: number
+  gra_percentage: number
+  ult_value: number
+  sale_value: number
+  sale_value_gra: number
   
   // Status
   status: 'disponivel' | 'comprometido' | 'vendido'
@@ -317,22 +320,19 @@ export interface ReceivablePayment {
 
 export interface AccountPayable {
   id: string
-  code: string // Código gerado automaticamente (CP-AANNNN)
-  contract_id?: string | null
-  person_id?: string | null
-  company_id?: string | null
+  code: string // Gerado automaticamente: CP-AANNNN
   description: string
-  counterparty: string
-  original_value: number
-  remaining_value: number
+  original_value: number // Calculado: installment_total × installment_value
+  remaining_value: number // Gerenciado automaticamente
   due_date: string | Date
   registration_date: string | Date
   status: 'em_aberto' | 'vencido' | 'parcialmente_pago' | 'quitado' | 'cancelado'
-  vinculo: string // Categoria/vínculo
-  centro_custo: string // Centro de custo
-  installment_current?: number | null
-  installment_total?: number | null
-  notes?: string | null
+  vinculo: string
+  centro_custo: string
+  installment_total?: number | null // Número de parcelas
+  installment_value?: number | null // Valor de cada parcela
+  periodicity?: 'semanal' | 'mensal' | 'semestral' | 'anual' | null // Periodicidade do parcelamento
+  installment_group_id?: string | null // UUID que agrupa todas as parcelas da mesma conta
   created_by?: string
   created_at: string
   updated_at: string
@@ -378,25 +378,6 @@ export interface ReportFilter {
   contractIds?: string[]
   assetTypes?: string[]
   parties?: string[]
-}
-
-export interface CashFlowReport {
-  period: {
-    start: Date
-    end: Date
-  }
-  predicted: {
-    income: number
-    expenses: number
-  }
-  actual: {
-    income: number
-    expenses: number
-  }
-  variance: {
-    income: number
-    expenses: number
-  }
 }
 
 export interface AccountFilter {
@@ -593,4 +574,200 @@ export interface ContractWithDetails extends Contract {
     })[]
   })[]
   payment_conditions: ContractPaymentCondition[]
+}
+
+// =====================================================
+// Category Types
+// =====================================================
+
+export interface Category {
+  id: string
+  name: string
+  type: 'vinculo' | 'centro_custo' | 'forma_pagamento' | 'imovel_tipo' | 'imovel_classe' | 'imovel_subclasse' | 'veiculo_tipo' | 'veiculo_combustivel' | 'empreendimento_tipo'
+  description?: string | null
+  is_active: boolean
+  display_order: number
+  created_by?: string | null
+  created_at: Date
+  updated_at: Date
+}
+
+// =====================================================
+// Dashboard Types
+// =====================================================
+
+// KPIs Mensais
+export interface MonthlyKPIs {
+  monthlyPayables: number      // Valor a pagar no mês
+  monthlyReceivables: number   // Valor a receber no mês
+  monthlyBalance: number       // Saldo (receivables - payables)
+  newContractsThisMonth: number // Quantidade de contratos novos
+}
+
+// Movimentações de Hoje
+export interface TodayMovements {
+  todayPayables: number
+  todayReceivables: number
+  todayPayablesCount: number
+  todayReceivablesCount: number
+  todayPayablesList: MovementItem[]
+  todayReceivablesList: MovementItem[]
+}
+
+// Item de movimentação
+export interface MovementItem {
+  id: string
+  code: string
+  description: string
+  value: number              // remaining_value
+  counterparty?: string      // Para contas a receber
+  vinculo?: string          // Para contas a pagar
+  centro_custo?: string     // Para contas a pagar
+  dueDate: string
+}
+
+// Adições Recentes
+export interface RecentAddition {
+  id: string
+  code: string
+  type: 'imovel' | 'veiculo' | 'credito' | 'empreendimento'
+  name: string
+  value: number
+  date: Date
+}
+
+// Resumo Bancário
+export interface BankSummary {
+  totalAccounts: number
+  totalBalance: number
+}
+
+// Contrato (simplificado para dashboard)
+export interface DashboardContract {
+  id: string
+  code: string
+  contractDate: string
+  status: string
+  sideATotal: number
+  sideBTotal: number
+  balance: number
+  parties: {
+    sideA: Array<{ name: string; document: string }>
+    sideB: Array<{ name: string; document: string }>
+  }
+  updatedAt: string
+}
+
+// ============================================
+// TIPOS DE RELATÓRIOS
+// ============================================
+
+export interface CashFlowReport {
+  period: {
+    startDate: string
+    endDate: string
+  }
+  realized: {
+    entries: number
+    exits: number
+    balance: number
+  }
+  forecast: {
+    entries: number
+    exits: number
+    balance: number
+  }
+  transactions: any[]
+  payables: any[]
+  receivables: any[]
+}
+
+export interface CounterpartyExposure {
+  name: string
+  totalReceivable?: number
+  overdueReceivable?: number
+  totalPayable?: number
+  overduePayable?: number
+  count: number
+}
+
+export interface CounterpartyExposureReport {
+  receivables: CounterpartyExposure[]
+  payables: CounterpartyExposure[]
+  summary: {
+    totalReceivables: number
+    totalPayables: number
+  }
+}
+
+export interface AssetBreakdown {
+  type: string
+  count: number
+  value: number
+  percentage: number
+  byStatus: {
+    disponivel: number
+    comprometido: number
+    vendido: number
+  }
+}
+
+export interface AssetCompositionReport {
+  summary: {
+    totalValue: number
+    totalAssets: number
+  }
+  breakdown: AssetBreakdown[]
+}
+
+export interface AgingBucket {
+  count: number
+  value: number
+}
+
+export interface DefaultReport {
+  summary: {
+    defaultRate: string
+    overdueReceivablesCount: number
+    overdueReceivablesValue: number
+    overduePayablesCount: number
+    overduePayablesValue: number
+  }
+  agingAnalysis: {
+    '0-30': AgingBucket
+    '31-60': AgingBucket
+    '61-90': AgingBucket
+    '90+': AgingBucket
+  }
+  overdueReceivables: any[]
+  overduePayables: any[]
+}
+
+export interface Participant {
+  name: string
+  document: string
+  contractsCount: number
+  sideATotal: number
+  sideBTotal: number
+  totalValue: number
+  graPercentage: number
+  contracts: Array<{
+    code: string
+    side: string
+    value: number
+    date: string
+  }>
+}
+
+export interface ParticipationReport {
+  participants: Participant[]
+  summary: {
+    totalParticipants: number
+    totalContracts: number
+    totalValue: number
+  }
+}
+
+export interface ReportMetadata {
+  lastGenerated: string
 }

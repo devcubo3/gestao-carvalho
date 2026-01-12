@@ -125,6 +125,11 @@ const settingsItems: NavItem[] = [
         icon: Users,
       },
       {
+        title: "Categorias",
+        href: "/configuracoes/categorias",
+        icon: Database,
+      },
+      {
         title: "Minha Conta",
         href: "/configuracoes/minha-conta",
         icon: User,

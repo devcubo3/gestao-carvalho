@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Search, X } from "lucide-react"
-import { mockVinculos, mockCentrosCusto } from "@/lib/mock-data"
+import { useCategories } from "@/hooks/use-categories"
 import type { AccountFilterType } from "@/lib/types"
 
 interface AccountFilterProps {
@@ -16,6 +16,8 @@ interface AccountFilterProps {
 }
 
 export function AccountFilter({ onFilter, onClear }: AccountFilterProps) {
+  const { categories: vinculos } = useCategories('vinculo')
+  const { categories: centrosCusto } = useCategories('centro_custo')
   const [filters, setFilters] = useState<AccountFilterType>({})
 
   const handleFilterChange = (key: keyof AccountFilterType, value: any) => {
@@ -83,9 +85,9 @@ export function AccountFilter({ onFilter, onClear }: AccountFilterProps) {
                 <SelectValue placeholder="Selecionar vínculo" />
               </SelectTrigger>
               <SelectContent>
-                {mockVinculos.map((vinculo) => (
-                  <SelectItem key={vinculo} value={vinculo}>
-                    {vinculo}
+                {vinculos.map((vinculo) => (
+                  <SelectItem key={vinculo.id} value={vinculo.name}>
+                    {vinculo.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -102,9 +104,9 @@ export function AccountFilter({ onFilter, onClear }: AccountFilterProps) {
                 <SelectValue placeholder="Selecionar centro de custo" />
               </SelectTrigger>
               <SelectContent>
-                {mockCentrosCusto.map((centro) => (
-                  <SelectItem key={centro} value={centro}>
-                    {centro}
+                {centrosCusto.map((centro) => (
+                  <SelectItem key={centro.id} value={centro.name}>
+                    {centro.name}
                   </SelectItem>
                 ))}
               </SelectContent>

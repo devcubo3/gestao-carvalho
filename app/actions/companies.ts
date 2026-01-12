@@ -217,7 +217,7 @@ export async function createCompany(data: CompanyFormData): Promise<ActionResult
 // Action: Listar Empresas
 // =====================================================
 
-export async function getCompanies(searchTerm?: string) {
+export async function getCompanies(searchTerm?: string, showInactive = false) {
   try {
     const supabase = await createClient()
     
@@ -233,7 +233,7 @@ export async function getCompanies(searchTerm?: string) {
     let query = supabase
       .from('companies')
       .select('*')
-      .eq('status', 'ativo')
+      .eq('status', showInactive ? 'inativo' : 'ativo')
       .order('created_at', { ascending: false })
     
     // Aplicar filtro de busca
@@ -474,6 +474,149 @@ export async function deleteCompany(id: string): Promise<ActionResult> {
     return {
       success: false,
       error: 'Erro inesperado ao desativar empresa',
+    }
+  }
+}
+
+// =====================================================
+// Action: Excluir Empresa Permanentemente (Hard Delete)
+// =====================================================
+
+export async function deleteCompanyPermanently(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    
+    // Verificar autenticação e permissão de admin
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return {
+        success: false,
+        error: 'Usuário não autenticado',
+      }
+    }
+    
+    // Verificar se é admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    if (!profile || profile.role !== 'admin') {
+      return {
+        success: false,
+        error: 'Apenas administradores podem excluir permanentemente empresas',
+      }
+    }
+    
+    // Verificar se a empresa está inativa
+    const { data: company, error: fetchError } = await supabase
+      .from('companies')
+      .select('status')
+      .eq('id', id)
+      .single()
+    
+    if (fetchError || !company) {
+      return {
+        success: false,
+        error: 'Empresa não encontrada',
+      }
+    }
+    
+    if (company.status !== 'inativo') {
+      return {
+        success: false,
+        error: 'Apenas empresas inativas podem ser excluídas permanentemente. Desative a empresa primeiro.',
+      }
+    }
+    
+    // Excluir permanentemente
+    const { error: deleteError } = await supabase
+      .from('companies')
+      .delete()
+      .eq('id', id)
+    
+    if (deleteError) {
+      console.error('Erro ao excluir empresa permanentemente:', deleteError)
+      return {
+        success: false,
+        error: 'Erro ao excluir empresa permanentemente',
+      }
+    }
+    
+    // Revalidar cache
+    revalidatePath('/cadastros/empresas')
+    
+    return {
+      success: true,
+    }
+    
+  } catch (error) {
+    console.error('Erro ao excluir empresa permanentemente:', error)
+    return {
+      success: false,
+      error: 'Erro inesperado ao excluir empresa permanentemente',
+    }
+  }
+}
+
+// =====================================================
+// Action: Reativar Empresa
+// =====================================================
+
+export async function reactivateCompany(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    
+    // Verificar autenticação e permissão de admin
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return {
+        success: false,
+        error: 'Usuário não autenticado',
+      }
+    }
+    
+    // Verificar se é admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    if (!profile || profile.role !== 'admin') {
+      return {
+        success: false,
+        error: 'Apenas administradores podem reativar empresas',
+      }
+    }
+    
+    // Reativar empresa
+    const { error: updateError } = await supabase
+      .from('companies')
+      .update({ status: 'ativo' })
+      .eq('id', id)
+    
+    if (updateError) {
+      console.error('Erro ao reativar empresa:', updateError)
+      return {
+        success: false,
+        error: 'Erro ao reativar empresa',
+      }
+    }
+    
+    // Revalidar cache
+    revalidatePath('/cadastros/empresas')
+    
+    return {
+      success: true,
+    }
+    
+  } catch (error) {
+    console.error('Erro ao reativar empresa:', error)
+    return {
+      success: false,
+      error: 'Erro inesperado ao reativar empresa',
     }
   }
 }

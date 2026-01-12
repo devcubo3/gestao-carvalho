@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { mockVinculos, mockCentrosCusto } from "@/lib/mock-data"
+import { useCategories } from "@/hooks/use-categories"
 
 export interface CashFilters {
   dateFrom?: Date
@@ -33,6 +33,9 @@ interface CashFiltersProps {
 }
 
 export function CashFilters({ filters, onFiltersChange, onClearFilters, onApplyFilters }: CashFiltersProps) {
+  const { categories: vinculos } = useCategories('vinculo')
+  const { categories: centrosCusto } = useCategories('centro_custo')
+  
   const [dateFromOpen, setDateFromOpen] = useState(false)
   const [dateToOpen, setDateToOpen] = useState(false)
 
@@ -116,9 +119,9 @@ export function CashFilters({ filters, onFiltersChange, onClearFilters, onApplyF
                 <SelectValue placeholder="Selecionar vínculo" />
               </SelectTrigger>
               <SelectContent>
-                {mockVinculos.map((vinculo) => (
-                  <SelectItem key={vinculo} value={vinculo}>
-                    {vinculo}
+                {vinculos.map((vinculo) => (
+                  <SelectItem key={vinculo.id} value={vinculo.name}>
+                    {vinculo.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -151,9 +154,9 @@ export function CashFilters({ filters, onFiltersChange, onClearFilters, onApplyF
                 <SelectValue placeholder="Selecionar centro de custo" />
               </SelectTrigger>
               <SelectContent>
-                {mockCentrosCusto.map((centro) => (
-                  <SelectItem key={centro} value={centro}>
-                    {centro}
+                {centrosCusto.map((centro) => (
+                  <SelectItem key={centro.id} value={centro.name}>
+                    {centro.name}
                   </SelectItem>
                 ))}
               </SelectContent>

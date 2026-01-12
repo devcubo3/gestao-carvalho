@@ -37,9 +37,9 @@ export function PartialPayDialog({ open, onOpenChange, account, onSubmit }: Part
   useEffect(() => {
     if (account && paidAmount) {
       const paid = Number.parseFloat(paidAmount) || 0
-      setRemainingAmount(account.value - paid)
+      setRemainingAmount(account.remaining_value - paid)
     } else if (account) {
-      setRemainingAmount(account.value)
+      setRemainingAmount(account.remaining_value)
     }
   }, [paidAmount, account])
 
@@ -49,7 +49,7 @@ export function PartialPayDialog({ open, onOpenChange, account, onSubmit }: Part
     if (useCreditCard && !creditCard) return
 
     const paid = Number.parseFloat(paidAmount)
-    if (paid <= 0 || paid > (account?.value || 0)) return
+    if (paid <= 0 || paid > (account?.remaining_value || 0)) return
 
     onSubmit({
       paidAmount: paid,
@@ -84,7 +84,7 @@ export function PartialPayDialog({ open, onOpenChange, account, onSubmit }: Part
             </div>
             <div className="grid gap-2">
               <Label>Valor total da conta</Label>
-              <Input value={formatCurrency(account.value)} disabled />
+              <Input value={formatCurrency(account.remaining_value)} disabled />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="paidAmount">Valor pago</Label>
@@ -93,7 +93,7 @@ export function PartialPayDialog({ open, onOpenChange, account, onSubmit }: Part
                 type="number"
                 step="0.01"
                 min="0.01"
-                max={account.value}
+                max={account.remaining_value}
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(e.target.value)}
                 placeholder="0,00"

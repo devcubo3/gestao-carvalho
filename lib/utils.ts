@@ -29,6 +29,24 @@ export function formatDate(date: Date | string): string {
   }
 }
 
+// Format date from input type="date" (YYYY-MM-DD) to Brazilian format (DD/MM/YYYY)
+// Avoids timezone issues by parsing the date string directly
+export function formatInputDate(dateString: string): string {
+  try {
+    if (!dateString) return "Data inválida"
+    
+    // Parse YYYY-MM-DD format
+    const [year, month, day] = dateString.split('-')
+    
+    if (!year || !month || !day) return "Data inválida"
+    
+    // Return DD/MM/YYYY format
+    return `${day}/${month}/${year}`
+  } catch (error) {
+    return "Data inválida"
+  }
+}
+
 // Format percentage
 export function formatPercentage(value: number): string {
   return new Intl.NumberFormat("pt-BR", {

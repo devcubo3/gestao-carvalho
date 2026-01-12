@@ -21,7 +21,10 @@ export interface PropertyFormData {
   zip_code: string
   area: number
   registry: string
-  reference_value: number
+  gra_percentage?: number
+  ult_value?: number
+  sale_value: number
+  sale_value_gra?: number
   status?: PropertyStatus
   notes?: string
 }
@@ -29,6 +32,10 @@ export interface PropertyFormData {
 export interface Property extends PropertyFormData {
   id: string
   code: string
+  sale_value: number
+  gra_percentage: number
+  ult_value: number
+  sale_value_gra: number
   status: PropertyStatus
   created_by: string | null
   created_at: string
@@ -125,7 +132,7 @@ export async function createProperty(formData: PropertyFormData) {
     if (!formData.identification || !formData.type || !formData.street || 
         !formData.number || !formData.neighborhood || !formData.city || 
         !formData.state || !formData.zip_code || !formData.area || 
-        !formData.registry || formData.reference_value === undefined) {
+        !formData.registry || formData.sale_value === undefined) {
       return { success: false, error: 'Todos os campos obrigatórios devem ser preenchidos' }
     }
 
@@ -133,8 +140,21 @@ export async function createProperty(formData: PropertyFormData) {
       return { success: false, error: 'Área deve ser maior que zero' }
     }
 
-    if (formData.reference_value < 0) {
-      return { success: false, error: 'Valor de referência não pode ser negativo' }
+    if (formData.gra_percentage !== undefined && 
+        (formData.gra_percentage < 0 || formData.gra_percentage > 100)) {
+      return { success: false, error: 'Percentual GRA deve estar entre 0 e 100' }
+    }
+
+    if (formData.sale_value < 0) {
+      return { success: false, error: 'Valor de venda não pode ser negativo' }
+    }
+
+    if (formData.ult_value !== undefined && formData.ult_value < 0) {
+      return { success: false, error: 'Valor ULT não pode ser negativo' }
+    }
+
+    if (formData.sale_value_gra !== undefined && formData.sale_value_gra < 0) {
+      return { success: false, error: 'Valor de venda GRA não pode ser negativo' }
     }
 
     if (formData.state.length !== 2) {
@@ -157,7 +177,10 @@ export async function createProperty(formData: PropertyFormData) {
       zip_code: formData.zip_code.trim(),
       area: formData.area,
       registry: formData.registry.trim(),
-      reference_value: formData.reference_value,
+      gra_percentage: formData.gra_percentage ?? 0,
+      ult_value: formData.ult_value ?? 0,
+      sale_value: formData.sale_value,
+      sale_value_gra: formData.sale_value_gra ?? formData.sale_value,
       status: formData.status || 'disponivel',
       notes: formData.notes?.trim() || null,
       created_by: user.id,
@@ -211,8 +234,21 @@ export async function updateProperty(id: string, formData: Partial<PropertyFormD
       return { success: false, error: 'Área deve ser maior que zero' }
     }
 
-    if (formData.reference_value !== undefined && formData.reference_value < 0) {
-      return { success: false, error: 'Valor de referência não pode ser negativo' }
+    if (formData.sale_value !== undefined && formData.sale_value < 0) {
+      return { success: false, error: 'Valor de venda não pode ser negativo' }
+    }
+
+    if (formData.gra_percentage !== undefined && 
+        (formData.gra_percentage < 0 || formData.gra_percentage > 100)) {
+      return { success: false, error: 'Percentual GRA deve estar entre 0 e 100' }
+    }
+
+    if (formData.ult_value !== undefined && formData.ult_value < 0) {
+      return { success: false, error: 'Valor ULT não pode ser negativo' }
+    }
+
+    if (formData.sale_value_gra !== undefined && formData.sale_value_gra < 0) {
+      return { success: false, error: 'Valor de venda GRA não pode ser negativo' }
     }
 
     if (formData.state && formData.state.length !== 2) {
@@ -235,7 +271,10 @@ export async function updateProperty(id: string, formData: Partial<PropertyFormD
     if (formData.zip_code) updateData.zip_code = formData.zip_code.trim()
     if (formData.area !== undefined) updateData.area = formData.area
     if (formData.registry) updateData.registry = formData.registry.trim()
-    if (formData.reference_value !== undefined) updateData.reference_value = formData.reference_value
+    if (formData.gra_percentage !== undefined) updateData.gra_percentage = formData.gra_percentage
+    if (formData.ult_value !== undefined) updateData.ult_value = formData.ult_value
+    if (formData.sale_value !== undefined) updateData.sale_value = formData.sale_value
+    if (formData.sale_value_gra !== undefined) updateData.sale_value_gra = formData.sale_value_gra
     if (formData.status) updateData.status = formData.status
     if (formData.notes !== undefined) updateData.notes = formData.notes?.trim() || null
 
@@ -349,11 +388,11 @@ export async function searchProperties(filters: {
     }
 
     if (filters.minValue !== undefined) {
-      query = query.gte('reference_value', filters.minValue)
+      query = query.gte('sale_value', filters.minValue)
     }
 
     if (filters.maxValue !== undefined) {
-      query = query.lte('reference_value', filters.maxValue)
+      query = query.lte('sale_value', filters.maxValue)
     }
 
     query = query.order('code', { ascending: true })

@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, formatInputDate } from "@/lib/utils"
 import { createContract, getNextContractCode } from "@/app/actions/contracts"
 import type { ContractSide, ContractPartyType, ContractItemType, ContractFormParty, ContractFormItem } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
@@ -59,9 +59,15 @@ export function ContractForm() {
   const { toast } = useToast()
   const [submitting, setSubmitting] = React.useState(false)
   
+  // Criar data local de hoje sem conversão de timezone
+  const getTodayLocal = () => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }
+  
   const [contractData, setContractData] = React.useState<Partial<Contract>>({
     code: "Carregando...",
-    date: new Date(),
+    date: getTodayLocal(),
     sideA: {
       name: "Lado A – GRA e Outros",
       parties: [],
@@ -135,6 +141,8 @@ export function ContractForm() {
   const calculateBalance = React.useCallback(() => {
     const sideATotal = contractData.sideA?.totalValue || 0
     const sideBTotal = contractData.sideB?.totalValue || 0
+    // Balance representa apenas a diferença entre os itens (sem considerar pagamentos)
+    // Os pagamentos são balanceados separadamente na validação
     const balance = sideATotal - sideBTotal
 
     setContractData((prev) => ({
@@ -156,10 +164,12 @@ export function ContractForm() {
       errors.push("Deve ter pelo menos uma parte")
     }
 
-    // Calcular diferença entre valor dos itens que saem e total de pagamentos
-    const saidaItens = contractData.sideB?.totalValue || 0
-    const totalPagamentos = paymentConditions.reduce((sum, condition) => sum + condition.value, 0)
-    const diferenca = saidaItens - totalPagamentos
+    // Calcular balanceamento: (Itens Lado A + Pagamentos Entrada) - (Itens Lado B + Pagamentos Saída)
+    const ladoA = (contractData.sideA?.totalValue || 0) + 
+                  paymentConditions.filter(c => c.direction === "Entrada").reduce((sum, c) => sum + c.value, 0)
+    const ladoB = (contractData.sideB?.totalValue || 0) + 
+                  paymentConditions.filter(c => c.direction === "Saída").reduce((sum, c) => sum + c.value, 0)
+    const diferenca = ladoA - ladoB
 
     if (Math.abs(diferenca) > 0.01) {
       errors.push("Contrato deve estar balanceado (diferença = R$ 0,00)")
@@ -212,7 +222,9 @@ export function ContractForm() {
         const installmentValue = condition.installmentValue || condition.value
 
         for (let i = 1; i <= installments; i++) {
-          const dueDate = new Date(condition.startDate)
+          // Criar data local sem conversão de timezone
+          const [year, month, day] = condition.startDate.split('-').map(Number)
+          const dueDate = new Date(year, month - 1, day)
           
           // Calcular data de vencimento baseado na frequência
           switch (condition.frequency) {
@@ -240,7 +252,7 @@ export function ContractForm() {
             counterparty: 'Contrato',
             original_value: installmentValue,
             remaining_value: installmentValue,
-            due_date: dueDate.toISOString().split('T')[0],
+            due_date: `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`,
             vinculo: 'Contratos',
             centro_custo: 'Contratos',
             installment_current: i,
@@ -270,7 +282,9 @@ export function ContractForm() {
         const installmentValue = condition.installmentValue || condition.value
 
         for (let i = 1; i <= installments; i++) {
-          const dueDate = new Date(condition.startDate)
+          // Criar data local sem conversão de timezone
+          const [year, month, day] = condition.startDate.split('-').map(Number)
+          const dueDate = new Date(year, month - 1, day)
           
           // Calcular data de vencimento baseado na frequência
           switch (condition.frequency) {
@@ -298,7 +312,7 @@ export function ContractForm() {
             counterparty: 'Contrato',
             original_value: installmentValue,
             remaining_value: installmentValue,
-            due_date: dueDate.toISOString().split('T')[0],
+            due_date: `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`,
             vinculo: 'Contratos',
             centro_custo: 'Contratos',
             installment_current: i,
@@ -318,6 +332,10 @@ export function ContractForm() {
     setSubmitting(true)
     
     try {
+      console.log('=== INICIANDO SALVAMENTO DO CONTRATO ===')
+      console.log('Dados do contrato:', contractData)
+      console.log('Condições de pagamento:', paymentConditions)
+      
       // Transform parties from both sides to flat array with side field
       const parties: ContractFormParty[] = [
         ...(contractData.sideA?.parties || []).map(p => ({
@@ -339,18 +357,26 @@ export function ContractForm() {
       ]
 
       // Transform items from both sides to flat array with side field
+      const normalizeItemType = (type: string): ContractItemType => {
+        const normalized = type
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        return normalized as ContractItemType
+      }
+      
       const items: ContractFormItem[] = [
         ...(contractData.sideA?.items || []).map(item => ({
-          item_type: item.type as ContractItemType,
-          item_id: item.itemId || null,
+          item_type: normalizeItemType(item.type),
+          item_id: item.itemId && item.itemId !== 'dinheiro' ? item.itemId : null,
           description: item.description || item.type,
           item_value: item.value || 0,
           side: 'A' as unknown as ContractSide,
           participants: [],
         })),
         ...(contractData.sideB?.items || []).map(item => ({
-          item_type: item.type as ContractItemType,
-          item_id: item.itemId || null,
+          item_type: normalizeItemType(item.type),
+          item_id: item.itemId && item.itemId !== 'dinheiro' ? item.itemId : null,
           description: item.description || item.type,
           item_value: item.value || 0,
           side: 'B' as unknown as ContractSide,
@@ -370,14 +396,40 @@ export function ContractForm() {
         notes: null,
       }))
 
-      const result = await createContract({
-        contract_date: contractData.date?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-        status: activate ? 'ativo' : 'rascunho',
+      console.log('=== DADOS TRANSFORMADOS ===')
+      console.log('Parties:', JSON.stringify(parties, null, 2))
+      console.log('Items:', JSON.stringify(items, null, 2))
+      console.log('Payment conditions:', JSON.stringify(payment_conditions, null, 2))
+
+      const contractPayload = {
+        contract_date: contractData.date ? (() => {
+          const year = contractData.date.getFullYear()
+          const month = String(contractData.date.getMonth() + 1).padStart(2, '0')
+          const day = String(contractData.date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        })() : (() => {
+          const today = new Date()
+          const year = today.getFullYear()
+          const month = String(today.getMonth() + 1).padStart(2, '0')
+          const day = String(today.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        })(),
+        status: activate ? ('ativo' as const) : ('rascunho' as const),
         notes: contractData.notes || undefined,
         parties,
         items,
         payment_conditions,
-      })
+      }
+      
+      console.log('=== PAYLOAD PARA CRIAR CONTRATO ===')
+      console.log(JSON.stringify(contractPayload, null, 2))
+
+      const result = await createContract(contractPayload)
+
+      console.log('=== RESULTADO DA CRIAÇÃO ===')
+      console.log('Success:', result.success)
+      console.log('Error:', result.error)
+      console.log('Contract:', result.contract)
 
       if (!result.success) {
         throw new Error(result.error || 'Erro ao criar contrato')
@@ -482,7 +534,14 @@ export function ContractForm() {
   }
 
   const handleItemAdded = (item: any) => {
-    const newItem = { ...item, id: Date.now().toString() }
+    const newItem = {
+      id: Date.now().toString(), // ID interno do contrato
+      itemId: item.id, // ID do ativo (imóvel, veículo, etc)
+      type: item.type,
+      description: item.name || item.description || item.type,
+      value: item.value || 0,
+      participants: [],
+    }
     setContractData((prev) => {
       const sideKey = selectedSide === "A" ? "sideA" : "sideB"
       const currentSide = prev[sideKey] || { name: `Lado ${selectedSide}`, parties: [], items: [], totalValue: 0 }
@@ -519,13 +578,19 @@ export function ContractForm() {
   }
 
   const addPaymentCondition = (direction: "Entrada" | "Saída") => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    const todayStr = `${year}-${month}-${day}`
+    
     const newCondition: PaymentCondition = {
       id: Date.now().toString(),
       value: 0,
       type: "Único",
       frequency: "Mensal",
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: new Date().toISOString().split("T")[0],
+      startDate: todayStr,
+      endDate: todayStr,
       installments: 1,
       installmentValue: 0,
       direction,
@@ -535,9 +600,12 @@ export function ContractForm() {
 
   const calculateInstallments = (startDate: string, endDate: string, frequency: string): number => {
     if (!startDate || !endDate) return 1
-    
-    const start = new Date(startDate)
-    const end = new Date(endDate)
+
+    // Criar datas locais sem conversão de timezone
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number)
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number)
+    const start = new Date(startYear, startMonth - 1, startDay)
+    const end = new Date(endYear, endMonth - 1, endDay)
     
     if (end <= start) return 1
     
@@ -606,10 +674,12 @@ export function ContractForm() {
   }
 
   const getPaymentBalanceDifference = () => {
-    // Diferença = Valor dos itens que saem - Total de pagamentos
-    const saidaItens = contractData.sideB?.totalValue || 0
-    const totalPagamentos = getTotalPaymentValue()
-    return saidaItens - totalPagamentos
+    // Lado A (GRA recebe): Itens que entram + Pagamentos de entrada
+    const ladoA = (contractData.sideA?.totalValue || 0) + getTotalPaymentEntrada()
+    // Lado B (GRA entrega): Itens que saem + Pagamentos de saída
+    const ladoB = (contractData.sideB?.totalValue || 0) + getTotalPaymentSaida()
+    // Diferença = Lado A - Lado B
+    return ladoA - ladoB
   }
 
   const getPaymentBalance = () => {
@@ -641,13 +711,21 @@ export function ContractForm() {
             <Input
               id="date"
               type="date"
-              value={contractData.date ? contractData.date.toISOString().split("T")[0] : ""}
-              onChange={(e) =>
+              value={contractData.date ? (() => {
+                const year = contractData.date.getFullYear()
+                const month = String(contractData.date.getMonth() + 1).padStart(2, '0')
+                const day = String(contractData.date.getDate()).padStart(2, '0')
+                return `${year}-${month}-${day}`
+              })() : ""}
+              onChange={(e) => {
+                // Criar data local sem conversão de timezone
+                const [year, month, day] = e.target.value.split('-').map(Number)
+                const localDate = new Date(year, month - 1, day)
                 setContractData((prev) => ({
                   ...prev,
-                  date: new Date(e.target.value),
+                  date: localDate,
                 }))
-              }
+              }}
             />
           </div>
         </div>
@@ -697,7 +775,7 @@ export function ContractForm() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Lado A - Partes
+                Lado A - GRA
               </CardTitle>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -811,7 +889,7 @@ export function ContractForm() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Lado B - Partes
+                Lado B - Terceiros
               </CardTitle>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -966,7 +1044,7 @@ export function ContractForm() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Itens que Entram (Lado A)
+              Itens que Entram
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -984,7 +1062,6 @@ export function ContractForm() {
                           <Badge variant="secondary">{item.type}</Badge>
                           <span className="text-sm font-medium">{item.description}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground">{item.itemId || item.type}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{formatCurrency(item.value)}</span>
@@ -1021,7 +1098,7 @@ export function ContractForm() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Itens que Saem (Lado B)
+              Itens que Saem
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1039,7 +1116,6 @@ export function ContractForm() {
                           <Badge variant="secondary">{item.type}</Badge>
                           <span className="text-sm font-medium">{item.description}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground">{item.itemId || item.type}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{formatCurrency(item.value)}</span>
@@ -1279,32 +1355,66 @@ export function ContractForm() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-sm text-muted-foreground">Valor do Contrato</p>
-              <p className="text-lg font-bold">
-                {formatCurrency(Math.abs(contractData.balance || 0))}
-              </p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3 p-4 bg-green-50 rounded-lg">
+                <h4 className="font-semibold text-green-900">GRA Recebe</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Itens que Entram</span>
+                    <span className="font-medium">{formatCurrency(contractData.sideA?.totalValue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pagamentos de Entrada</span>
+                    <span className="font-medium">{formatCurrency(getTotalPaymentEntrada())}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-base">
+                    <span className="font-semibold">Total Lado A</span>
+                    <span className="font-bold text-green-700">
+                      {formatCurrency((contractData.sideA?.totalValue || 0) + getTotalPaymentEntrada())}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3 p-4 bg-red-50 rounded-lg">
+                <h4 className="font-semibold text-red-900">GRA Entrega</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Itens que Saem</span>
+                    <span className="font-medium">{formatCurrency(contractData.sideB?.totalValue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pagamentos de Saída</span>
+                    <span className="font-medium">{formatCurrency(getTotalPaymentSaida())}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-base">
+                    <span className="font-semibold">Total Lado B</span>
+                    <span className="font-bold text-red-700">
+                      {formatCurrency((contractData.sideB?.totalValue || 0) + getTotalPaymentSaida())}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Pagamentos</p>
-              <p className="text-lg font-bold">{formatCurrency(getTotalPaymentValue())}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Diferença</p>
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Diferença</p>
               <p
-                className={`text-lg font-bold ${Math.abs(getPaymentBalance()) < 0.01 ? "text-green-600" : "text-red-600"}`}
+                className={`text-2xl font-bold ${Math.abs(getPaymentBalanceDifference()) < 0.01 ? "text-green-600" : "text-orange-600"}`}
               >
-                {formatCurrency(getPaymentBalance())}
+                {Math.abs(getPaymentBalanceDifference()) < 0.01
+                  ? "✓ Balanceado"
+                  : formatCurrency(getPaymentBalanceDifference())}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {Math.abs(getPaymentBalanceDifference()) < 0.01
+                  ? "Contrato balanceado corretamente"
+                  : getPaymentBalanceDifference() > 0
+                  ? "GRA está recebendo mais do que entregando"
+                  : "GRA está entregando mais do que recebendo"}
               </p>
             </div>
-          </div>
-          <div className="mt-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              {Math.abs(getPaymentBalance()) < 0.01
-                ? "✓ Condições de pagamento balanceadas com o valor do contrato"
-                : "⚠ Ajuste as condições para igualar o valor do contrato"}
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -1339,7 +1449,9 @@ export function ContractForm() {
                   <div key={party.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded">
                     <Badge variant="outline">{party.type}</Badge>
                     <span>{party.name}</span>
-                    <span className="text-sm text-muted-foreground">({party.document})</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({party.document || "usuário-GRA"})
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1417,14 +1529,21 @@ export function ContractForm() {
                         <span className="text-sm text-muted-foreground">({condition.frequency})</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Início: {new Date(condition.startDate).toLocaleDateString("pt-BR")}
+                        Início: {formatInputDate(condition.startDate)}
                       </div>
                     </div>
                     <span className="font-medium text-blue-700">{formatCurrency(condition.value)}</span>
                   </div>
                 ))}
-                <div className="text-right font-bold text-blue-700">
-                  Total: {formatCurrency(getTotalPaymentValue())}
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Entrada</p>
+                    <p className="font-bold text-green-700">{formatCurrency(getTotalPaymentEntrada())}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Saída</p>
+                    <p className="font-bold text-red-700">{formatCurrency(getTotalPaymentSaida())}</p>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1434,15 +1553,63 @@ export function ContractForm() {
 
           <Separator />
 
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">Status de Balanceamento</p>
-            <p
-              className={`text-xl font-bold ${Math.abs(getPaymentBalanceDifference()) < 0.01 ? "text-green-600" : "text-red-600"}`}
-            >
-              {Math.abs(getPaymentBalanceDifference()) < 0.01
-                ? "✓ Balanceado"
-                : `Diferença: ${formatCurrency(getPaymentBalanceDifference())}`}
-            </p>
+          <div className="space-y-4">
+            <h4 className="font-medium text-center">Resumo de Balanceamento</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 p-4 bg-green-50 rounded-lg">
+                <h5 className="font-semibold text-green-900 text-sm">GRA Recebe</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Itens Lado A</span>
+                    <span>{formatCurrency(contractData.sideA?.totalValue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pagamentos Entrada</span>
+                    <span>{formatCurrency(getTotalPaymentEntrada())}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-bold text-green-700">
+                    <span>Total</span>
+                    <span>{formatCurrency((contractData.sideA?.totalValue || 0) + getTotalPaymentEntrada())}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2 p-4 bg-red-50 rounded-lg">
+                <h5 className="font-semibold text-red-900 text-sm">GRA Entrega</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Itens Lado B</span>
+                    <span>{formatCurrency(contractData.sideB?.totalValue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pagamentos Saída</span>
+                    <span>{formatCurrency(getTotalPaymentSaida())}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-bold text-red-700">
+                    <span>Total</span>
+                    <span>{formatCurrency((contractData.sideB?.totalValue || 0) + getTotalPaymentSaida())}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Diferença</p>
+              <p
+                className={`text-2xl font-bold ${Math.abs(getPaymentBalanceDifference()) < 0.01 ? "text-green-600" : "text-orange-600"}`}
+              >
+                {Math.abs(getPaymentBalanceDifference()) < 0.01
+                  ? "✓ Balanceado"
+                  : formatCurrency(getPaymentBalanceDifference())}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.abs(getPaymentBalanceDifference()) < 0.01
+                  ? "Contrato balanceado corretamente"
+                  : getPaymentBalanceDifference() > 0
+                  ? "GRA está recebendo mais do que entregando"
+                  : "GRA está entregando mais do que recebendo"}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

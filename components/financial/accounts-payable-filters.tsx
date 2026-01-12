@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Search, RotateCcw } from "lucide-react"
 import { format } from "date-fns"
-import { mockVinculos, mockCentrosCusto } from "@/lib/mock-data"
+import { useCategories } from "@/hooks/use-categories"
 
 export interface AccountsPayableFilters {
   dateFrom?: Date
@@ -33,6 +33,8 @@ export function AccountsPayableFilters({
   onClearFilters,
   onApplyFilters,
 }: AccountsPayableFiltersProps) {
+  const { categories: vinculos } = useCategories('vinculo')
+  const { categories: centrosCusto } = useCategories('centro_custo')
   const updateFilter = (key: keyof AccountsPayableFilters, value: any) => {
     // Se o valor for undefined ou string vazia, remove do objeto
     const newFilters = { ...filters }
@@ -129,9 +131,9 @@ export function AccountsPayableFilters({
                 <SelectValue placeholder="Selecionar vínculo" />
               </SelectTrigger>
               <SelectContent>
-                {mockVinculos.map((vinculo) => (
-                  <SelectItem key={vinculo} value={vinculo}>
-                    {vinculo}
+                {vinculos.map((vinculo) => (
+                  <SelectItem key={vinculo.id} value={vinculo.name}>
+                    {vinculo.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -148,9 +150,9 @@ export function AccountsPayableFilters({
                 <SelectValue placeholder="Selecionar centro de custo" />
               </SelectTrigger>
               <SelectContent>
-                {mockCentrosCusto.map((centro) => (
-                  <SelectItem key={centro} value={centro}>
-                    {centro}
+                {centrosCusto.map((centro) => (
+                  <SelectItem key={centro.id} value={centro.name}>
+                    {centro.name}
                   </SelectItem>
                 ))}
               </SelectContent>

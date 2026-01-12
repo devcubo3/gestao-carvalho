@@ -9,9 +9,10 @@ import { useRouter } from "next/navigation"
 interface ContractsTableClientProps {
   initialContracts: Contract[]
   appliedFilters: any
+  isAdmin?: boolean
 }
 
-export function ContractsTableClient({ initialContracts, appliedFilters }: ContractsTableClientProps) {
+export function ContractsTableClient({ initialContracts, appliedFilters, isAdmin = false }: ContractsTableClientProps) {
   const [filters, setFilters] = useState<ContractFilters>(appliedFilters || {})
   const router = useRouter()
 
@@ -39,7 +40,7 @@ export function ContractsTableClient({ initialContracts, appliedFilters }: Contr
         onClearFilters={handleClearFilters}
         onApplyFilters={handleApplyFilters}
       />
-      <ContractsTable contracts={initialContracts} />
+      <ContractsTable contracts={initialContracts} isAdmin={isAdmin} />
     </>
   )
 }

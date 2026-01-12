@@ -152,10 +152,10 @@ export function SearchPersonModal({ open, onOpenChange, onPartyAdded, side }: Se
   }
 
   const handleConfirm = () => {
-    if (!selectedPerson || !percentage) {
+    if (!selectedPerson) {
       toast({
         title: "Erro",
-        description: "Selecione uma pessoa e defina a participação",
+        description: "Selecione uma pessoa",
         variant: "destructive",
       })
       return
@@ -164,11 +164,10 @@ export function SearchPersonModal({ open, onOpenChange, onPartyAdded, side }: Se
     const partyData = {
       id: selectedPerson.id,
       name: selectedPerson.full_name,
-      type: "person" as const,
-      document: selectedPerson.cpf || undefined,
+      type: "pessoa" as const,
+      document: selectedPerson.cpf || '',
       email: selectedPerson.email || undefined,
       phone: selectedPerson.mobile_phone || selectedPerson.phone || undefined,
-      percentage: Number.parseFloat(percentage) || 0,
     }
 
     onPartyAdded(partyData)
@@ -283,20 +282,6 @@ export function SearchPersonModal({ open, onOpenChange, onPartyAdded, side }: Se
               )}
             </div>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="percentage">Porcentagem no contrato (%)</Label>
-            <Input
-              id="percentage"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={percentage}
-              onChange={(e) => setPercentage(e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
 
           <div className="flex gap-2 justify-end pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

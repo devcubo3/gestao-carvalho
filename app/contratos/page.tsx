@@ -4,12 +4,32 @@ import { getContracts } from "@/app/actions/contracts"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/server"
 
 export default async function ContractsPage({
   searchParams,
 }: {
   searchParams: { status?: string; codigo?: string; dateFrom?: string; dateTo?: string }
 }) {
+  // Verificar se o usuário é admin
+  let isAdmin = false
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      
+      isAdmin = profile?.role === 'admin'
+    }
+  } catch (error) {
+    isAdmin = false
+  }
+
   // Busca contratos com filtros da URL
   const contracts = await getContracts({
     status: searchParams.status,
@@ -46,6 +66,7 @@ export default async function ContractsPage({
         <ContractsTableClient 
           initialContracts={filteredContracts} 
           appliedFilters={appliedFilters}
+          isAdmin={isAdmin}
         />
       </div>
     </MainLayout>

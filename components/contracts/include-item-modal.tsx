@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Building, Car, MapPin, CreditCard, Loader2 } from "lucide-react"
+import { Building, Car, MapPin, CreditCard, Loader2, AlertCircle } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import { checkItemLinkedToContract } from "@/app/actions/contracts"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface IncludeItemModalProps {
   open: boolean
@@ -24,6 +26,8 @@ export function IncludeItemModal({ open, onOpenChange, onItemAdded, side, itemTy
   const [percentage, setPercentage] = React.useState("")
   const [items, setItems] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(false)
+  const [checkingLink, setCheckingLink] = React.useState(false)
+  const [linkWarning, setLinkWarning] = React.useState<any>(null)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -52,7 +56,7 @@ export function IncludeItemModal({ open, onOpenChange, onItemAdded, side, itemTy
             id: p.id,
             name: p.identification,
             code: p.code || `IMOV-${p.id.slice(0, 8)}`,
-            value: p.reference_value || 0,
+            value: p.sale_value || 0,
             type: "Imóvel",
             icon: Building
           }))
@@ -130,14 +134,50 @@ export function IncludeItemModal({ open, onOpenChange, onItemAdded, side, itemTy
   }
   const selectedItem = items.find((item) => item.id === selectedItemId)
 
+  // Verifica se o item selecionado está vinculado a outro contrato
+  React.useEffect(() => {
+    if (selectedItemId && itemType) {
+      checkItemLink()
+    } else {
+      setLinkWarning(null)
+    }
+  }, [selectedItemId])
+
+  const checkItemLink = async () => {
+    setCheckingLink(true)
+    try {
+      const result = await checkItemLinkedToContract(selectedItemId, itemType)
+      
+      if (result.isLinked) {
+        setLinkWarning(result)
+      } else {
+        setLinkWarning(null)
+      }
+    } catch (error) {
+      console.error('Erro ao verificar vinculação:', error)
+    } finally {
+      setCheckingLink(false)
+    }
+  }
+
   const handleConfirm = () => {
     if (!selectedItem || !percentage) return
+    
+    // Bloqueia se o item estiver vinculado a outro contrato
+    if (linkWarning?.isLinked) {
+      toast({
+        title: "Item já vinculado",
+        description: `Este item já está vinculado ao contrato ${linkWarning.contractCode}`,
+        variant: "destructive",
+      })
+      return
+    }
 
     const percentageValue = Number.parseFloat(percentage) / 100
     const itemValue = (selectedItem.value || 0) * percentageValue
 
     onItemAdded({
-      id: Date.now().toString(),
+      id: selectedItem.id,
       name: selectedItem.name,
       type: selectedItem.type,
       value: itemValue,
@@ -148,12 +188,14 @@ export function IncludeItemModal({ open, onOpenChange, onItemAdded, side, itemTy
     // Reset form
     setSelectedItemId("")
     setPercentage("")
+    setLinkWarning(null)
     onOpenChange(false)
   }
 
   const handleCancel = () => {
     setSelectedItemId("")
     setPercentage("")
+    setLinkWarning(null)
     onOpenChange(false)
   }
 
@@ -199,6 +241,31 @@ export function IncludeItemModal({ open, onOpenChange, onItemAdded, side, itemTy
             )}
           </div>
 
+          {/* Alerta de item já vinculado */}
+          {checkingLink && (
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Verificando vinculação...</span>
+            </div>
+          )}
+
+          {linkWarning?.isLinked && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Item já vinculado</AlertTitle>
+              <AlertDescription>
+                Este item já está vinculado ao contrato{" "}
+                <strong>{linkWarning.contractCode}</strong>
+                {linkWarning.contractDescription && ` - ${linkWarning.contractDescription}`}
+                {" "}(Status: {linkWarning.contractStatus}).
+                <br />
+                <span className="text-xs mt-1 block">
+                  Não é possível vincular o mesmo item a múltiplos contratos ativos.
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="percentage">Porcentagem (%)</Label>
             <Input
@@ -235,7 +302,11 @@ export function IncludeItemModal({ open, onOpenChange, onItemAdded, side, itemTy
             <Button variant="outline" onClick={handleCancel} className="flex-1 bg-transparent">
               Cancelar
             </Button>
-            <Button onClick={handleConfirm} disabled={!selectedItemId || !percentage || loading} className="flex-1">
+            <Button 
+              onClick={handleConfirm} 
+              disabled={!selectedItemId || !percentage || loading || linkWarning?.isLinked || checkingLink} 
+              className="flex-1"
+            >
               Confirmar
             </Button>
           </div>

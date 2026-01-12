@@ -67,10 +67,10 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
   }
 
   const handleConfirm = () => {
-    if (!selectedCompany || !percentage) {
+    if (!selectedCompany) {
       toast({
         title: "Erro",
-        description: "Selecione uma empresa e defina a participação",
+        description: "Selecione uma empresa",
         variant: "destructive",
       })
       return
@@ -79,11 +79,10 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
     const partyData = {
       id: selectedCompany.id,
       name: selectedCompany.trade_name,
-      type: "company" as const,
+      type: "empresa" as const,
       document: selectedCompany.cnpj,
       email: undefined,
       phone: undefined,
-      percentage: Number.parseFloat(percentage) || 0,
     }
 
     onPartyAdded(partyData)
@@ -170,20 +169,6 @@ export function SearchCompanyModal({ open, onOpenChange, onPartyAdded, side }: S
               )}
             </div>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="percentage">Porcentagem no contrato (%)</Label>
-            <Input
-              id="percentage"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={percentage}
-              onChange={(e) => setPercentage(e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
 
           <div className="flex gap-2 justify-end pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
