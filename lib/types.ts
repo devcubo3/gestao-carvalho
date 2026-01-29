@@ -667,19 +667,22 @@ export interface CashFlowReport {
     startDate: string
     endDate: string
   }
+  // Realizado: Pagamentos/Recebimentos efetivos que foram de fato quitados
   realized: {
-    entries: number
-    exits: number
-    balance: number
+    entries: number    // Recebimentos efetivados
+    exits: number      // Pagamentos efetivados
+    balance: number    // Saldo realizado
   }
+  // Previsto: Contas pendentes de pagamento/recebimento
   forecast: {
-    entries: number
-    exits: number
-    balance: number
+    entries: number    // Contas a receber pendentes
+    exits: number      // Contas a pagar pendentes
+    balance: number    // Saldo previsto
   }
-  transactions: any[]
-  payables: any[]
-  receivables: any[]
+  payablePayments: any[]      // Pagamentos efetivados
+  receivablePayments: any[]   // Recebimentos efetivados
+  payables: any[]             // Contas a pagar pendentes
+  receivables: any[]          // Contas a receber pendentes
 }
 
 export interface CounterpartyExposure {
@@ -689,6 +692,7 @@ export interface CounterpartyExposure {
   totalPayable?: number
   overduePayable?: number
   count: number
+  personId?: string | null
 }
 
 export interface CounterpartyExposureReport {

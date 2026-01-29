@@ -2,9 +2,17 @@
 
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DataTable } from "@/components/ui/data-table"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, Edit, Trash2, CreditCard, Eye } from "lucide-react"
+import { Plus, Edit, Trash2, CreditCard, Eye, MoreHorizontal } from "lucide-react"
 import { CreditCreateModal } from "./credit-create-modal"
 import { EditCreditDialog } from "./edit-credit-dialog"
 import { DeleteCreditDialog } from "./delete-credit-dialog"
@@ -151,42 +159,39 @@ export function CreditsTable({ credits }: CreditsTableProps) {
     {
       key: "actions",
       label: "Ações",
-      width: "w-28",
+      width: "w-[70px]",
       sortable: false,
       render: (credit) => (
-        <div className="flex items-center gap-1 justify-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleAction("view", credit)}
-            className="h-8 w-8 p-0"
-            title="Visualizar"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleAction("edit", credit)}
-              className="h-8 w-8 p-0"
-              title="Editar"
-            >
-              <Edit className="h-4 w-4" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleAction("delete", credit)}
-              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-              title="Excluir"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleAction("view", credit)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Visualizar
+            </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onClick={() => handleAction("edit", credit)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+            )}
+            {canDelete && (
+              <DropdownMenuItem 
+                onClick={() => handleAction("delete", credit)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ]

@@ -169,3 +169,101 @@
     @apply text-slate-200;
   }
 }
+
+/* Print styles for PDF export */
+@media print {
+  /* Hide UI elements that shouldn't appear in PDF */
+  body.printing header,
+  body.printing nav,
+  body.printing .no-print,
+  body.printing button,
+  body.printing [role="navigation"],
+  body.printing aside,
+  body.printing .sidebar,
+  body.printing a[role="button"],
+  body.printing [class*="button"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Ensure main content takes full width */
+  body.printing main,
+  body.printing .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 15px !important;
+  }
+
+  /* Compact header for print */
+  body.printing h1 {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.25rem !important;
+    line-height: 1.2 !important;
+  }
+
+  body.printing p {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Reduce spacing in flex containers */
+  body.printing [class*="flex"],
+  body.printing [class*="gap"] {
+    gap: 0.5rem !important;
+  }
+
+  /* Optimize page layout */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Optimize table printing */
+  body.printing table {
+    page-break-inside: auto;
+    font-size: 0.875rem !important;
+  }
+
+  body.printing tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  body.printing thead {
+    display: table-header-group;
+  }
+
+  body.printing tfoot {
+    display: table-footer-group;
+  }
+
+  body.printing th,
+  body.printing td {
+    padding: 0.375rem 0.5rem !important;
+  }
+
+  /* Ensure text is readable */
+  body.printing {
+    color: #000 !important;
+    background: #fff !important;
+    font-size: 12pt !important;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  body.printing * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Remove link URLs in print (cleaner look) */
+  body.printing a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* Hide empty divs and spacers */
+  body.printing div:empty {
+    display: none !important;
+  }
+}

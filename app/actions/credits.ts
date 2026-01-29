@@ -128,7 +128,36 @@ export async function createCredit(input: CreditInput) {
       created_by: user.id,
     })
 
+  // ========================================
+  // SINCRONIZAÇÃO COM FINANCEIRO
+  // Criar conta a pagar vinculada ao crédito
+  // ========================================
+  const { error: payableError } = await supabase
+    .from("accounts_payable")
+    .insert({
+      code: code, // Usar o mesmo código do crédito (ex: CRD-0001)
+      description: `Débito referente ao Crédito ${code} - ${input.origin}`,
+      original_value: input.nominal_value,
+      remaining_value: input.nominal_value,
+      due_date: input.due_date || input.start_date,
+      registration_date: input.start_date,
+      status: 'em_aberto',
+      vinculo: 'Créditos',
+      centro_custo: 'Créditos',
+      installment_total: 1,
+      installment_value: input.nominal_value,
+      periodicity: 'mensal',
+      created_by: user.id,
+    })
+
+  if (payableError) {
+    console.error('Erro ao criar conta a pagar vinculada:', payableError)
+    // Não retornamos erro aqui para não bloquear a criação do crédito
+    // mas logamos para monitoramento
+  }
+
   revalidatePath("/banco-dados/creditos")
+  revalidatePath("/financeiro/contas-pagar")
   return { success: true, error: null, data: credit }
 }
 
@@ -187,6 +216,30 @@ export async function deleteCredit(id: string) {
     return { success: false, error: "Apenas administradores podem excluir créditos" }
   }
 
+  // Buscar o código do crédito antes de excluí-lo
+  const { data: credit } = await supabase
+    .from("credits")
+    .select("code")
+    .eq("id", id)
+    .single()
+
+  // ========================================
+  // SINCRONIZAÇÃO COM FINANCEIRO
+  // Excluir conta a pagar vinculada ao crédito
+  // ========================================
+  if (credit?.code) {
+    const { error: payableDeleteError } = await supabase
+      .from("accounts_payable")
+      .delete()
+      .eq("code", credit.code)
+
+    if (payableDeleteError) {
+      console.error('Erro ao excluir conta a pagar vinculada:', payableDeleteError)
+      // Continuamos com a exclusão do crédito mesmo se houver erro
+    }
+  }
+
+  // Excluir o crédito
   const { error } = await supabase
     .from("credits")
     .delete()
@@ -197,6 +250,7 @@ export async function deleteCredit(id: string) {
   }
 
   revalidatePath("/banco-dados/creditos")
+  revalidatePath("/financeiro/contas-pagar")
   return { success: true, error: null }
 }
 

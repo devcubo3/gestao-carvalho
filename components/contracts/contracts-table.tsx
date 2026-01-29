@@ -3,7 +3,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, formatInputDate } from "@/lib/utils"
 import { Plus, Eye, FileText, MoreVertical, Trash2 } from "lucide-react"
 import type { Contract } from "@/lib/types"
 import type { TableColumn } from "@/hooks/use-table"
@@ -48,7 +48,7 @@ export function ContractsTable({ contracts, isAdmin = false }: ContractsTablePro
       key: "contract_date",
       label: "Data",
       width: "w-28",
-      render: (contract) => formatDate(new Date(contract.contract_date)),
+      render: (contract) => formatInputDate(contract.contract_date),
     },
     {
       key: "parties",

@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Trash2, Building, Car, Home, CreditCard, FileText } from "lucide-react"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, formatInputDate } from "@/lib/utils"
 import type { ContractWithDetails } from "@/lib/types"
 import { deleteContract, activateContract } from "@/app/actions/contracts"
 import { toast } from "@/hooks/use-toast"
@@ -159,7 +159,7 @@ export function ContractDetailsClient({ contract, isAdmin = false }: ContractDet
           </div>
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Data do Contrato</Label>
-            <p className="text-lg">{formatDate(new Date(contract.contract_date))}</p>
+            <p className="text-lg">{formatInputDate(contract.contract_date)}</p>
           </div>
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Lado A</Label>

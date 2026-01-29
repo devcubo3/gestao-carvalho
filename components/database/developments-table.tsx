@@ -3,9 +3,17 @@
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DataTable } from "@/components/ui/data-table"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, Eye, Edit, Trash2, Building2 } from "lucide-react"
+import { Plus, Eye, Edit, Trash2, Building2, MoreHorizontal } from "lucide-react"
 import { DevelopmentCreateModal } from "./development-create-modal"
 import { EditDevelopmentDialog } from "./edit-development-dialog"
 import { DeleteDevelopmentDialog } from "./delete-development-dialog"
@@ -170,42 +178,39 @@ export function DevelopmentsTable({ developments }: DevelopmentsTableProps) {
     {
       key: "actions",
       label: "Ações",
-      width: "w-28",
+      width: "w-[70px]",
       sortable: false,
       render: (development) => (
-        <div className="flex items-center gap-1 justify-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleAction("view", development)}
-            className="h-8 w-8 p-0"
-            title="Visualizar"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleAction("edit", development)}
-              className="h-8 w-8 p-0"
-              title="Editar"
-            >
-              <Edit className="h-4 w-4" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleAction("delete", development)}
-              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-              title="Excluir"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleAction("view", development)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Visualizar
+            </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem onClick={() => handleAction("edit", development)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+            )}
+            {canDelete && (
+              <DropdownMenuItem 
+                onClick={() => handleAction("delete", development)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ]

@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 /**
  * RELATÓRIO 1: Fluxo de Caixa
  * Entrada e saídas por período (previsto x realizado)
+ * 
+ * PREVISTO: Todas as contas a pagar e receber agendadas para o período (baseado na data de vencimento)
+ * REALIZADO: Pagamentos e recebimentos efetivamente realizados no período (baseado na data de pagamento)
  */
 export async function getCashFlowReport(params: {
   startDate: string
@@ -12,45 +15,52 @@ export async function getCashFlowReport(params: {
 }) {
   const supabase = await createClient()
   
-  // Buscar transações efetivadas (realizadas)
-  const { data: transactions } = await supabase
-    .from('cash_transactions')
-    .select('*')
-    .gte('transaction_date', params.startDate)
-    .lte('transaction_date', params.endDate)
-    .eq('status', 'efetivado')
-    .order('transaction_date')
+  // ========================================
+  // REALIZADO: Pagamentos/Recebimentos efetivos
+  // ========================================
+  
+  // Buscar pagamentos de contas a pagar (efetivamente pagos)
+  const { data: payablePayments } = await supabase
+    .from('payable_payments')
+    .select('payment_value, payment_date')
+    .gte('payment_date', params.startDate)
+    .lte('payment_date', params.endDate)
 
-  // Buscar contas a pagar (previsto)
-  const { data: payables } = await supabase
-    .from('accounts_payable')
-    .select('*')
-    .gte('due_date', params.startDate)
-    .lte('due_date', params.endDate)
-    .in('status', ['em_aberto', 'vencido', 'parcialmente_pago'])
-
-  // Buscar contas a receber (previsto)
-  const { data: receivables } = await supabase
-    .from('accounts_receivable')
-    .select('*')
-    .gte('due_date', params.startDate)
-    .lte('due_date', params.endDate)
-    .in('status', ['em_aberto', 'vencido', 'parcialmente_pago'])
+  // Buscar recebimentos de contas a receber (efetivamente recebidos)
+  const { data: receivablePayments } = await supabase
+    .from('receivable_payments')
+    .select('payment_value, payment_date')
+    .gte('payment_date', params.startDate)
+    .lte('payment_date', params.endDate)
 
   // Calcular totais realizados
   const realized = {
-    entries: transactions
-      ?.filter(t => t.type === 'entrada')
-      .reduce((sum, t) => sum + Number(t.value), 0) || 0,
-    exits: transactions
-      ?.filter(t => t.type === 'saida')
-      .reduce((sum, t) => sum + Number(t.value), 0) || 0,
+    entries: receivablePayments?.reduce((sum, r) => sum + Number(r.payment_value), 0) || 0,
+    exits: payablePayments?.reduce((sum, p) => sum + Number(p.payment_value), 0) || 0,
   }
 
-  // Calcular totais previstos
+  // ========================================
+  // PREVISTO: Contas agendadas para o período (baseado na data de vencimento)
+  // ========================================
+  
+  // Buscar todas as contas a pagar com vencimento no período
+  const { data: payables } = await supabase
+    .from('accounts_payable')
+    .select('total_value, due_date, status')
+    .gte('due_date', params.startDate)
+    .lte('due_date', params.endDate)
+
+  // Buscar todas as contas a receber com vencimento no período
+  const { data: receivables } = await supabase
+    .from('accounts_receivable')
+    .select('total_value, due_date, status')
+    .gte('due_date', params.startDate)
+    .lte('due_date', params.endDate)
+
+  // Calcular totais previstos (soma de todas as contas agendadas para o período)
   const forecast = {
-    entries: receivables?.reduce((sum, r) => sum + Number(r.remaining_value), 0) || 0,
-    exits: payables?.reduce((sum, p) => sum + Number(p.remaining_value), 0) || 0,
+    entries: receivables?.reduce((sum, r) => sum + Number(r.total_value), 0) || 0,
+    exits: payables?.reduce((sum, p) => sum + Number(p.total_value), 0) || 0,
   }
 
   return {
@@ -65,7 +75,8 @@ export async function getCashFlowReport(params: {
       exits: forecast.exits,
       balance: forecast.entries - forecast.exits,
     },
-    transactions: transactions || [],
+    payablePayments: payablePayments || [],
+    receivablePayments: receivablePayments || [],
     payables: payables || [],
     receivables: receivables || [],
   }
@@ -75,14 +86,22 @@ export async function getCashFlowReport(params: {
  * RELATÓRIO 2: Exposição por Contraparte
  * Quanto cada pessoa/empresa tem a pagar/receber
  */
-export async function getCounterpartyExposureReport() {
+export async function getCounterpartyExposureReport(params?: {
+  personId?: string
+}) {
   const supabase = await createClient()
 
   // Buscar todas as contas a receber agrupadas por contraparte
-  const { data: receivables } = await supabase
+  let receivablesQuery = supabase
     .from('accounts_receivable')
-    .select('counterparty, remaining_value, status, due_date')
+    .select('counterparty, remaining_value, status, due_date, person_id, people!inner(full_name)')
     .in('status', ['em_aberto', 'vencido', 'parcialmente_pago'])
+  
+  if (params?.personId) {
+    receivablesQuery = receivablesQuery.eq('person_id', params.personId)
+  }
+  
+  const { data: receivables } = await receivablesQuery
 
   // Buscar contas a pagar (não tem counterparty direto, usar descrição)
   const { data: payables } = await supabase
@@ -99,12 +118,14 @@ export async function getCounterpartyExposureReport() {
   }>()
 
   receivables?.forEach(r => {
-    const key = r.counterparty || 'Não identificado'
+    const personName = (r.people as any)?.full_name || r.counterparty || 'Não identificado'
+    const key = r.person_id || r.counterparty || 'Não identificado'
     const existing = receivablesMap.get(key) || {
-      name: key,
+      name: personName,
       totalReceivable: 0,
       overdueReceivable: 0,
       count: 0,
+      personId: r.person_id,
     }
     
     existing.totalReceivable += Number(r.remaining_value)
@@ -259,17 +280,29 @@ export async function getAssetCompositionReport() {
  * RELATÓRIO 4: Inadimplência
  * Contas em atraso e taxa de inadimplência
  */
-export async function getDefaultReport() {
+/**
+ * RELATÓRIO 4: Inadimplência
+ * Contas vencidas e análise de aging
+ */
+export async function getDefaultReport(params?: {
+  personId?: string
+}) {
   const supabase = await createClient()
   const today = new Date().toISOString().split('T')[0]
 
-  // Contas a receber vencidas
-  const { data: overdueReceivables } = await supabase
+  // Contas a receber vencidas com join na tabela people
+  let overdueReceivablesQuery = supabase
     .from('accounts_receivable')
-    .select('*')
+    .select('*, people!inner(full_name)')
     .lt('due_date', today)
     .in('status', ['em_aberto', 'vencido', 'parcialmente_pago'])
     .order('due_date', { ascending: true })
+  
+  if (params?.personId) {
+    overdueReceivablesQuery = overdueReceivablesQuery.eq('person_id', params.personId)
+  }
+  
+  const { data: overdueReceivables } = await overdueReceivablesQuery
 
   // Contas a pagar vencidas
   const { data: overduePayables } = await supabase

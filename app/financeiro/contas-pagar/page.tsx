@@ -105,7 +105,7 @@ export default function AccountsPayablePage() {
           </div>
           <Button onClick={() => router.push("/financeiro/contas-pagar/lote")} className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Pagamento em lote
+            Pagamentos
           </Button>
         </div>
 

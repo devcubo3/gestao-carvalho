@@ -1,0 +1,180 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e7]:
+          - img "GRA Empreendimentos" [ref=e9]
+          - generic [ref=e10]:
+            - heading "Gestão Patrimônial" [level=1] [ref=e11]
+            - paragraph [ref=e12]: GRA Empreendimentos
+        - navigation [ref=e13]:
+          - link "Início" [ref=e14] [cursor=pointer]:
+            - /url: /
+            - img
+            - generic [ref=e15]: Início
+          - link "Contratos" [ref=e16] [cursor=pointer]:
+            - /url: /contratos
+            - img
+            - generic [ref=e17]: Contratos
+          - generic [ref=e18]:
+            - button "Financeiro" [expanded] [ref=e19] [cursor=pointer]:
+              - img
+              - generic [ref=e20]: Financeiro
+              - img
+            - generic [ref=e145]:
+              - link "Caixa" [ref=e146] [cursor=pointer]:
+                - /url: /financeiro/caixa
+                - generic [ref=e147]: Caixa
+              - link "Contas a Receber" [ref=e148] [cursor=pointer]:
+                - /url: /financeiro/contas-receber
+                - generic [ref=e149]: Contas a Receber
+              - link "Contas a Pagar" [ref=e150] [cursor=pointer]:
+                - /url: /financeiro/contas-pagar
+                - generic [ref=e151]: Contas a Pagar
+          - button "Patrimônio" [ref=e22] [cursor=pointer]:
+            - img
+            - generic [ref=e23]: Patrimônio
+            - img
+          - button "Cadastros" [ref=e25] [cursor=pointer]:
+            - img
+            - generic [ref=e26]: Cadastros
+            - img
+          - link "Relatórios" [ref=e27] [cursor=pointer]:
+            - /url: /relatorios
+            - img
+            - generic [ref=e28]: Relatórios
+        - button "Configurações" [ref=e31] [cursor=pointer]:
+          - img
+          - generic [ref=e32]: Configurações
+          - img
+    - generic [ref=e33]:
+      - banner [ref=e34]:
+        - navigation "breadcrumb" [ref=e37]:
+          - list [ref=e38]:
+            - listitem [ref=e39]:
+              - link "Financeiro" [disabled] [ref=e40]
+            - listitem [ref=e41]:
+              - img [ref=e42]
+            - listitem [ref=e44]:
+              - link "Contas a Receber" [disabled] [ref=e45]
+      - main [ref=e46]:
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - heading "Contas a Receber" [level=1] [ref=e50]
+              - paragraph [ref=e51]: Gerencie valores a receber de contratos e operações
+            - button "Recebimento em lote" [ref=e52]:
+              - img
+              - text: Recebimento em lote
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]:
+                - generic [ref=e155]: Total em Aberto
+                - img [ref=e156]
+              - generic [ref=e159]:
+                - generic [ref=e160]: R$ 0,00
+                - paragraph [ref=e161]: 0 contas em aberto
+            - generic [ref=e162]:
+              - generic [ref=e163]:
+                - generic [ref=e164]: Vence Hoje
+                - img [ref=e165]
+              - generic [ref=e167]:
+                - generic [ref=e168]: R$ 0,00
+                - paragraph [ref=e169]: vencimento hoje
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - generic [ref=e172]: Vence Esta Semana
+                - img [ref=e173]
+              - generic [ref=e176]:
+                - generic [ref=e177]: R$ 0,00
+                - paragraph [ref=e178]: vencimento até 7 dias
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - generic [ref=e181]: Em Atraso
+                - img [ref=e182]
+              - generic [ref=e184]:
+                - generic [ref=e185]: R$ 0,00
+                - paragraph [ref=e186]: contas vencidas
+          - generic [ref=e53]:
+            - generic [ref=e56]: Filtros
+            - generic [ref=e57]:
+              - generic [ref=e58]:
+                - generic [ref=e59]:
+                  - generic [ref=e60]: Data Inicial
+                  - textbox "Data Inicial" [ref=e61]
+                - generic [ref=e62]:
+                  - generic [ref=e63]: Data Final
+                  - textbox "Data Final" [ref=e64]
+                - generic [ref=e65]:
+                  - generic [ref=e66]: Código
+                  - textbox "Código" [ref=e67]:
+                    - /placeholder: "Ex: CR-240001"
+                - generic [ref=e68]:
+                  - generic [ref=e69]: Status
+                  - combobox [ref=e70]:
+                    - generic: Todos
+                    - img
+                - generic [ref=e72]:
+                  - generic [ref=e73]: Vínculo
+                  - combobox [ref=e74]:
+                    - generic: Selecionar vínculo
+                    - img
+                - generic [ref=e76]:
+                  - generic [ref=e77]: Centro de Custo
+                  - combobox [ref=e78]:
+                    - generic: Selecionar centro de custo
+                    - img
+                - generic [ref=e80]:
+                  - generic [ref=e81]: Descrição
+                  - textbox "Descrição" [ref=e82]:
+                    - /placeholder: Buscar na descrição
+                - generic [ref=e83]:
+                  - generic [ref=e84]: Valor
+                  - generic [ref=e85]:
+                    - spinbutton [ref=e86]
+                    - spinbutton [ref=e87]
+              - generic [ref=e88]:
+                - button "Limpar Filtros" [disabled]:
+                  - img
+                  - text: Limpar Filtros
+                - button "Aplicar Filtros" [ref=e89]:
+                  - img
+                  - text: Aplicar Filtros
+          - generic [ref=e91]:
+            - generic [ref=e93]:
+              - generic [ref=e94]: Contas a Receber
+              - button "Nova Conta" [ref=e187]:
+                - img
+                - text: Nova Conta
+            - generic [ref=e95]:
+              - generic [ref=e96]:
+                - img [ref=e97]
+                - textbox "Buscar por descrição, código..." [ref=e100]
+              - table [ref=e103]:
+                - rowgroup [ref=e104]:
+                  - row "Código Vencimento Status Vínculo Centro de Custo Descrição Valor Restante Ações" [ref=e105]:
+                    - columnheader "Código" [ref=e106] [cursor=pointer]:
+                      - generic [ref=e108]: Código
+                    - columnheader "Vencimento" [ref=e110] [cursor=pointer]:
+                      - generic [ref=e112]: Vencimento
+                    - columnheader "Status" [ref=e114] [cursor=pointer]:
+                      - generic [ref=e116]: Status
+                    - columnheader "Vínculo" [ref=e118] [cursor=pointer]:
+                      - generic [ref=e120]: Vínculo
+                    - columnheader "Centro de Custo" [ref=e122] [cursor=pointer]:
+                      - generic [ref=e124]: Centro de Custo
+                    - columnheader "Descrição" [ref=e126] [cursor=pointer]:
+                      - generic [ref=e128]: Descrição
+                    - columnheader "Valor Restante" [ref=e130] [cursor=pointer]:
+                      - generic [ref=e132]: Valor Restante
+                    - columnheader "Ações" [ref=e134]:
+                      - generic [ref=e136]: Ações
+                - rowgroup [ref=e137]:
+                  - row "Nenhuma conta encontrada" [ref=e138]:
+                    - cell "Nenhuma conta encontrada" [ref=e139]:
+                      - generic [ref=e140]:
+                        - img [ref=e141]
+                        - paragraph [ref=e144]: Nenhuma conta encontrada
+  - region "Notifications (F8)":
+    - list
+  - alert [ref=e188]

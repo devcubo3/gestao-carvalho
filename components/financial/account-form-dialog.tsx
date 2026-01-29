@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/utils"
 
 interface AccountFormData {
   description: string
+  counterparty: string
   installment_value: number
   due_date: string
   vinculo: string
@@ -41,8 +42,10 @@ interface AccountFormDialogProps {
 export function AccountFormDialog({ open, onOpenChange, title, description, onSubmit, submitting = false }: AccountFormDialogProps) {
   const { categories: vinculos } = useCategories('vinculo')
   const { categories: centrosCusto } = useCategories('centro_custo')
+  const [counterparties, setCounterparties] = useState<Array<{ id: string; name: string; type: string }>>([])
   const [formData, setFormData] = useState<AccountFormData>({
     description: "",
+    counterparty: "",
     installment_value: 0,
     due_date: "",
     vinculo: "",
@@ -51,6 +54,22 @@ export function AccountFormDialog({ open, onOpenChange, title, description, onSu
     periodicity: "mensal",
   })
 
+  useEffect(() => {
+    // Buscar pessoas, empresas e usuários
+    async function fetchCounterparties() {
+      try {
+        const response = await fetch('/api/counterparties/list')
+        const data = await response.json()
+        setCounterparties(data)
+      } catch (error) {
+        console.error('Erro ao buscar contrapartes:', error)
+      }
+    }
+    if (open) {
+      fetchCounterparties()
+    }
+  }, [open])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(formData)
@@ -58,6 +77,7 @@ export function AccountFormDialog({ open, onOpenChange, title, description, onSu
     // Reset form
     setFormData({
       description: "",
+      counterparty: "",
       installment_value: 0,
       due_date: "",
       vinculo: "",
@@ -93,6 +113,28 @@ export function AccountFormDialog({ open, onOpenChange, title, description, onSu
             />
           </div>
 
+          {/* Contraparte */}
+          <div className="space-y-2">
+            <Label htmlFor="counterparty">Contraparte</Label>
+            <Select 
+              value={formData.counterparty} 
+              onValueChange={(value) => handleChange("counterparty", value)} 
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar pessoa/empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {counterparties.map((cp) => (
+                  <SelectItem key={cp.id} value={cp.name}>
+                    {cp.name} ({cp.type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 
           {/* Vencimento */}
           <div className="space-y-2">
             <Label htmlFor="due_date">Vencimento da 1ª Parcela *</Label>

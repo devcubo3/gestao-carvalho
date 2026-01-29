@@ -194,7 +194,25 @@ export function AccountsReceivableTable({ accounts, loading = false, onSuccess }
   const handleAddAccount = async (data: any) => {
     console.log('📝 Dados recebidos no handleAddAccount:', data)
     setSubmitting(true)
-    const result = await createAccountReceivable(data)
+    
+    // Transformar os dados do formulário para o formato esperado pela action
+    const accountData = {
+      description: data.description,
+      counterparty: data.counterparty,
+      original_value: (data.installment_total || 1) * (data.installment_value || 0),
+      due_date: data.due_date,
+      vinculo: data.vinculo,
+      centro_custo: data.centro_custo,
+      installment_current: 1,
+      installment_total: data.installment_total || 1,
+      notes: null,
+      contract_id: null,
+      person_id: null,
+      company_id: null,
+    }
+    
+    console.log('📦 Dados transformados para envio:', accountData)
+    const result = await createAccountReceivable(accountData)
     console.log('📊 Resultado da criação:', result)
     setSubmitting(false)
 

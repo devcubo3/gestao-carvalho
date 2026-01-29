@@ -3,18 +3,126 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import type { DefaultReport } from "@/lib/types"
-import { AlertTriangle, TrendingUp, TrendingDown } from "lucide-react"
+import { AlertTriangle, TrendingUp, TrendingDown, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface DefaultReportProps {
   data: DefaultReport
+  reportId: string
 }
 
-export function DefaultReportView({ data }: DefaultReportProps) {
+interface Person {
+  id: string
+  full_name: string
+}
+
+export function DefaultReportView({ data, reportId }: DefaultReportProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [people, setPeople] = useState<Person[]>([])
+  const [selectedPerson, setSelectedPerson] = useState<string>(searchParams.get('personId') || 'all')
+  const [loading, setLoading] = useState(false)
   const defaultRateNum = parseFloat(data.summary.defaultRate)
+
+  useEffect(() => {
+    // Buscar lista de pessoas
+    async function fetchPeople() {
+      try {
+        const response = await fetch('/api/people/list')
+        const data = await response.json()
+        setPeople(data)
+      } catch (error) {
+        console.error('Erro ao buscar pessoas:', error)
+      }
+    }
+    fetchPeople()
+  }, [])
+
+  const handleFilterApply = () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    
+    if (selectedPerson !== 'all') {
+      params.set('personId', selectedPerson)
+    }
+    
+    const url = params.toString() 
+      ? `/relatorios/${reportId}?${params.toString()}`
+      : `/relatorios/${reportId}`
+    
+    router.push(url)
+  }
+
+  const handleClearFilter = () => {
+    setSelectedPerson('all')
+    router.push(`/relatorios/${reportId}`)
+  }
+
+  const selectedPersonName = selectedPerson !== 'all' 
+    ? people.find(p => p.id === selectedPerson)?.full_name 
+    : null
   
   return (
     <div className="space-y-6">
+      {/* Indicador de Pessoa Filtrada - Visível em PDF */}
+      {selectedPersonName && (
+        <Card className="print:block">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Inadimplência da pessoa:</p>
+                <p className="text-lg font-semibold">{selectedPersonName}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filtro por Pessoa */}
+      <Card className="no-print">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Search className="h-5 w-5" />
+            Filtrar por Pessoa
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="person-select">Pessoa</Label>
+              <Select value={selectedPerson} onValueChange={setSelectedPerson}>
+                <SelectTrigger id="person-select">
+                  <SelectValue placeholder="Todas as pessoas em atraso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as pessoas em atraso</SelectItem>
+                  {people.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleFilterApply} disabled={loading}>
+              <Search className="h-4 w-4 mr-2" />
+              Aplicar Filtro
+            </Button>
+            {selectedPerson !== 'all' && (
+              <Button variant="outline" onClick={handleClearFilter}>
+                Limpar
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Taxa de Inadimplência */}
       <Card className={defaultRateNum > 10 ? 'border-red-500' : ''}>
         <CardHeader>
@@ -74,7 +182,7 @@ export function DefaultReportView({ data }: DefaultReportProps) {
       {/* Análise por Período de Atraso */}
       <Card>
         <CardHeader>
-          <CardTitle>Aging - Análise por Período de Atraso</CardTitle>
+          <CardTitle>Análise por Período de Atraso</CardTitle>
           <CardDescription>
             Contas a receber agrupadas por dias de atraso
           </CardDescription>

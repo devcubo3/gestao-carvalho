@@ -4,6 +4,7 @@ import { CounterpartyExposureReportView } from "@/components/reports/counterpart
 import { AssetCompositionReportView } from "@/components/reports/asset-composition-report"
 import { DefaultReportView } from "@/components/reports/default-report"
 import { ParticipationReportView } from "@/components/reports/participation-report"
+import { ExportPdfButton } from "@/components/reports/export-pdf-button"
 import { 
   getCashFlowReport,
   getCounterpartyExposureReport,
@@ -19,7 +20,7 @@ import type {
   ParticipationReport 
 } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Download } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
@@ -28,7 +29,7 @@ export default async function ReportDetailPage({
   searchParams,
 }: {
   params: { id: string }
-  searchParams: { startDate?: string; endDate?: string }
+  searchParams: { startDate?: string; endDate?: string; personId?: string }
 }) {
   const reportId = params.id
 
@@ -41,26 +42,26 @@ export default async function ReportDetailPage({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
+            <Button variant="outline" size="icon" asChild className="no-print">
               <Link href="/relatorios">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold">{getReportTitle(reportId)}</h1>
-              <p className="text-muted-foreground">
+            <div className="print:mt-0">
+              <h1 className="text-3xl font-bold print:text-2xl print:mb-1">{getReportTitle(reportId)}</h1>
+              <p className="text-muted-foreground print:text-sm print:mb-2">
                 Gerado em {new Date().toLocaleDateString('pt-BR')} às{' '}
                 {new Date().toLocaleTimeString('pt-BR')}
               </p>
             </div>
           </div>
-          <Button>
-            <Download className="h-4 w-4 mr-2" />
-            Exportar PDF
-          </Button>
+          <div className="no-print">
+            <ExportPdfButton reportTitle={getReportTitle(reportId)} />
+          </div>
         </div>
 
         {/* Conteúdo do Relatório */}
+        {/* @ts-expect-error Server Component */}
         <ReportContent reportId={reportId} searchParams={searchParams} />
       </div>
     </MainLayout>
@@ -89,7 +90,7 @@ async function ReportContent({
   searchParams 
 }: { 
   reportId: string
-  searchParams: { startDate?: string; endDate?: string }
+  searchParams: { startDate?: string; endDate?: string; personId?: string }
 }) {
   try {
     switch (reportId) {
@@ -100,12 +101,14 @@ async function ReportContent({
           new Date().toISOString().split('T')[0]
         
         const data = await getCashFlowReport({ startDate, endDate })
-        return <CashFlowReportView data={data} />
+        return <CashFlowReportView data={data} reportId={reportId} />
       }
 
       case "exposicao-contraparte": {
-        const data = await getCounterpartyExposureReport()
-        return <CounterpartyExposureReportView data={data} />
+        const data = await getCounterpartyExposureReport(
+          searchParams.personId ? { personId: searchParams.personId } : undefined
+        )
+        return <CounterpartyExposureReportView data={data} reportId={reportId} />
       }
 
       case "composicao-patrimonio": {
@@ -114,8 +117,10 @@ async function ReportContent({
       }
 
       case "inadimplencia": {
-        const data = await getDefaultReport()
-        return <DefaultReportView data={data} />
+        const data = await getDefaultReport(
+          searchParams.personId ? { personId: searchParams.personId } : undefined
+        )
+        return <DefaultReportView data={data} reportId={reportId} />
       }
 
       case "participacoes": {

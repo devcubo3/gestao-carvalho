@@ -3,16 +3,124 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import type { CounterpartyExposureReport } from "@/lib/types"
-import { Users, TrendingUp, TrendingDown, AlertCircle } from "lucide-react"
+import { Users, TrendingUp, TrendingDown, AlertCircle, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface CounterpartyExposureReportProps {
   data: CounterpartyExposureReport
+  reportId: string
 }
 
-export function CounterpartyExposureReportView({ data }: CounterpartyExposureReportProps) {
+interface Person {
+  id: string
+  full_name: string
+}
+
+export function CounterpartyExposureReportView({ data, reportId }: CounterpartyExposureReportProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [people, setPeople] = useState<Person[]>([])
+  const [selectedPerson, setSelectedPerson] = useState<string>(searchParams.get('personId') || 'all')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // Buscar lista de pessoas
+    async function fetchPeople() {
+      try {
+        const response = await fetch('/api/people/list')
+        const data = await response.json()
+        setPeople(data)
+      } catch (error) {
+        console.error('Erro ao buscar pessoas:', error)
+      }
+    }
+    fetchPeople()
+  }, [])
+
+  const handleFilterApply = () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    
+    if (selectedPerson !== 'all') {
+      params.set('personId', selectedPerson)
+    }
+    
+    const url = params.toString() 
+      ? `/relatorios/${reportId}?${params.toString()}`
+      : `/relatorios/${reportId}`
+    
+    router.push(url)
+  }
+
+  const handleClearFilter = () => {
+    setSelectedPerson('all')
+    router.push(`/relatorios/${reportId}`)
+  }
+
+  const selectedPersonName = selectedPerson !== 'all' 
+    ? people.find(p => p.id === selectedPerson)?.full_name 
+    : null
+
   return (
     <div className="space-y-6">
+      {/* Indicador de Pessoa Filtrada - Visível em PDF */}
+      {selectedPersonName && (
+        <Card className="print:block">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Contas vinculadas à pessoa:</p>
+                <p className="text-lg font-semibold">{selectedPersonName}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filtro por Pessoa */}
+      <Card className="no-print">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Search className="h-5 w-5" />
+            Filtrar por Pessoa
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="person-select">Pessoa</Label>
+              <Select value={selectedPerson} onValueChange={setSelectedPerson}>
+                <SelectTrigger id="person-select">
+                  <SelectValue placeholder="Todas as pessoas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as pessoas</SelectItem>
+                  {people.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleFilterApply} disabled={loading}>
+              <Search className="h-4 w-4 mr-2" />
+              Aplicar Filtro
+            </Button>
+            {selectedPerson !== 'all' && (
+              <Button variant="outline" onClick={handleClearFilter}>
+                Limpar
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       {/* Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
@@ -50,9 +158,6 @@ export function CounterpartyExposureReportView({ data }: CounterpartyExposureRep
             <Users className="h-5 w-5" />
             Contas a Receber por Contraparte
           </CardTitle>
-          <CardDescription>
-            {data.receivables.length} contraparte(s) com valores a receber
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {data.receivables.length === 0 ? (
@@ -71,7 +176,7 @@ export function CounterpartyExposureReportView({ data }: CounterpartyExposureRep
                     <p className="font-bold text-green-600">
                       {formatCurrency(item.totalReceivable || 0)}
                     </p>
-                    {item.overdueReceivable && item.overdueReceivable > 0 && (
+                    {item.overdueReceivable && Number(item.overdueReceivable) > 0 && (
                       <div className="flex items-center gap-1 justify-end mt-1">
                         <AlertCircle className="h-3 w-3 text-red-500" />
                         <p className="text-sm text-red-500">
@@ -94,9 +199,6 @@ export function CounterpartyExposureReportView({ data }: CounterpartyExposureRep
             <Users className="h-5 w-5" />
             Contas a Pagar por Vínculo
           </CardTitle>
-          <CardDescription>
-            {data.payables.length} vínculo(s) com valores a pagar
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {data.payables.length === 0 ? (
@@ -115,7 +217,7 @@ export function CounterpartyExposureReportView({ data }: CounterpartyExposureRep
                     <p className="font-bold text-red-600">
                       {formatCurrency(item.totalPayable || 0)}
                     </p>
-                    {item.overduePayable && item.overduePayable > 0 && (
+                    {item.overduePayable && Number(item.overduePayable) > 0 && (
                       <div className="flex items-center gap-1 justify-end mt-1">
                         <AlertCircle className="h-3 w-3 text-red-500" />
                         <p className="text-sm text-red-500">

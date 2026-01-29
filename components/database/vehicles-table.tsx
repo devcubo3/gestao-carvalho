@@ -3,8 +3,16 @@
 import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DataTable } from "@/components/ui/data-table"
-import { Plus, Edit, Trash2, Car } from "lucide-react"
+import { Plus, Edit, Trash2, Car, Eye, MoreHorizontal } from "lucide-react"
 import { VehicleCreateModal } from "./vehicle-create-modal"
 import { EditVehicleDialog } from "./edit-vehicle-dialog"
 import { DeleteVehicleDialog } from "./delete-vehicle-dialog"
@@ -179,32 +187,35 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
     {
       key: "actions",
       label: "Ações",
-      width: "w-[100px]",
+      width: "w-[70px]",
       sortable: false,
       render: (vehicle) => (
-        <div className="flex items-center gap-2">
-          {canEdit && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleAction("edit", vehicle)}
-              title="Editar"
-            >
-              <Edit className="h-4 w-4" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          {canDelete && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleAction("delete", vehicle)}
-              className="text-destructive hover:text-destructive"
-              title="Excluir"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {canEdit && (
+              <DropdownMenuItem onClick={() => handleAction("edit", vehicle)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+            )}
+            {canDelete && (
+              <DropdownMenuItem 
+                onClick={() => handleAction("delete", vehicle)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ]
